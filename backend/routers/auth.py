@@ -6,6 +6,7 @@ PURPOSE: Handles all user authentication endpoints.
 Endpoints:
   POST /auth/signup           → create new account, return JWT
   POST /auth/login            → verify credentials, return JWT
+  GET  /auth/me               → get current user profile
   POST /auth/forgot-password  → send password reset email
   POST /auth/reset-password   → validate token, set new password
   DELETE /auth/account        → delete user account and all their data
@@ -23,7 +24,7 @@ CONNECTED TO:
 """
 
 import os
-
+import hashlib
 import secrets
 
 import uuid
@@ -48,21 +49,39 @@ from database import get_db
 
 from models import PasswordResetToken, User
 
+from pydantic import BaseModel, EmailStr
+
 from schemas import (
     UserCreate,          # POST /signup request body
-    LoginRequest,        # POST /login and /forgot-password request body
+    LoginRequest,        # POST /login request body
     ResetPasswordBody,   # POST /reset-password request body
-    UserResponse,        # used in get_current_user return type hint
+    UserResponse,        # used in GET /auth/me and get_current_user
     TokenResponse,       # returned by /signup and /login
+)
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Only email is needed to initiate a password reset."""
+    email: EmailStr
+
+from rate_limiter import (
+    limiter,
+    check_login_lockout,
+    record_failed_login,
+    clear_failed_logins,
 )
 
 router = APIRouter()
 
 
-SECRET_KEY = os.getenv("JWT_SECRET", "changeme-very-secret-key")
-                       
-ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+SECRET_KEY = os.getenv("JWT_SECRET", "")
+if not SECRET_KEY or len(SECRET_KEY) < 32:
+    raise RuntimeError(
+        "CRITICAL: JWT_SECRET environment variable is missing or shorter than 32 characters. "
+        "The application cannot start securely. Please set a JWT_SECRET with at least 32 characters."
+    )
 
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -92,23 +111,23 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 security = HTTPBearer(auto_error=False)  # re-declared for clarity (same as above)
 
 async def get_current_user(
-    request: Request,  # full request object — used to check query params for token
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),  # Bearer header
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),  # Bearer header only
     db: AsyncSession = Depends(get_db),  # DB session for user lookup
 ) -> User:
-    token = credentials.credentials if credentials else request.query_params.get("token")
-    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},  # standard response header for 401
     )
 
-    try:
-        if not token:
-            raise credentials_exception
+    if not credentials or not credentials.credentials:
+        raise credentials_exception
 
+    token = credentials.credentials
+
+    try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
 
         user_id: Optional[str] = payload.get("sub")
 
@@ -129,7 +148,8 @@ async def get_current_user(
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def signup(body: UserCreate, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def signup(request: Request, body: UserCreate, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     existing = result.scalar_one_or_none()  # returns User or None
 
@@ -154,22 +174,34 @@ async def signup(body: UserCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/minute")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
+    check_login_lockout(body.email)
+
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()  # None if email not found
 
     if not user or not verify_password(body.password, user.password_hash):
+        record_failed_login(body.email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password",  # intentionally vague
         )
 
+    clear_failed_logins(body.email)
     token = create_access_token(user.id)
     return TokenResponse(access_token=token)
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_me(current_user: User = Depends(get_current_user)):
+    """Return the currently authenticated user's profile."""
+    return current_user
+
+
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
-async def forgot_password(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/hour")
+async def forgot_password(request: Request, body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
     """Always return success to prevent account enumeration."""
     message = {"message": "If this email exists, a reset link has been sent."}
 
@@ -184,21 +216,22 @@ async def forgot_password(body: LoginRequest, db: AsyncSession = Depends(get_db)
     for old_token in old_tokens.scalars().all():
         await db.delete(old_token)  # remove each old token
 
-    token = secrets.token_urlsafe(32)
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
     db.add(
         PasswordResetToken(
             id=uuid.uuid4(),                              # new UUID for this token row
             user_id=user.id,                             # links to the user
-            token=token,                                  # the random token string
+            token=token_hash,                            # store SHA-256 hash only
             expires_at=datetime.utcnow() + timedelta(hours=1),  # 1 hour from now
         )
     )
-    await db.commit()  # save the token to the DB
+    await db.commit()  # save the hashed token to the DB
 
     reset_link = (
         f"{os.getenv('FRONTEND_URL', 'http://localhost:5173').rstrip('/')}"
-        f"/reset-password?token={token}"
+        f"/reset-password?token={raw_token}"
     )
 
     try:
@@ -215,8 +248,9 @@ async def reset_password(
     body: ResetPasswordBody,       # contains "token" and "new_password"
     db: AsyncSession = Depends(get_db),
 ):
+    token_hash = hashlib.sha256(body.token.encode("utf-8")).hexdigest()
     result = await db.execute(
-        select(PasswordResetToken).where(PasswordResetToken.token == body.token)
+        select(PasswordResetToken).where(PasswordResetToken.token == token_hash)
     )
     reset = result.scalar_one_or_none()  # None if token doesn't exist
 

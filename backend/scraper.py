@@ -1,7 +1,7 @@
 """
 scraper.py
 ─────────────────────────────────────────────────────────────────────────────
-PURPOSE: Five-layer asynchronous competitor pricing page scraper for PricePilot.
+PURPOSE: Five-layer asynchronous competitor pricing page scraper for PriceLens.
 
 When a user adds a competitor URL, this module fetches and cleans the text
 from their pricing page so the AI (module3) can benchmark against it.
@@ -28,9 +28,6 @@ CONNECTED TO:
 """
 
 import os
-
-os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "/opt/render/project/src/.playwright"
-
 import asyncio
 
 import hashlib
@@ -40,9 +37,8 @@ import re
 import time
 
 import requests
-
-import requests
 from bs4 import BeautifulSoup
+from url_safety import safe_requests_get, validate_url, is_safe_url, SSRFValidationError
 
 
 _CACHE: dict[str, dict] = {}
@@ -177,11 +173,10 @@ def _focused_bs4_text(soup: BeautifulSoup) -> str:
 
 
 def _layer1_sync(url: str) -> dict:
-    response = requests.get(
+    response = safe_requests_get(
         url,
         timeout=12,
         headers=_HEADERS,
-        allow_redirects=True,
     )
 
     response.raise_for_status()
@@ -218,6 +213,15 @@ async def _layer2_playwright(url: str) -> dict:
             "status": "playwright_not_installed",  # tells analysis.py to skip this
         }
 
+    try:
+        validate_url(url)
+    except SSRFValidationError:
+        return {
+            "text": "",
+            "clean_text": "",
+            "status": "blocked_unsafe_url",
+        }
+
     raw_text = ""  # accumulate extracted text here
 
     async with async_playwright() as playwright:
@@ -241,13 +245,19 @@ async def _layer2_playwright(url: str) -> dict:
 
             page = await context.new_page()
 
-            async def block_heavy_resources(route):
+            async def block_heavy_and_unsafe_resources(route):
+                req_url = route.request.url
                 if route.request.resource_type in {"image", "media", "font"}:
                     await route.abort()   # abort the request (don't download)
-                else:
-                    await route.continue_()  # allow other requests (JS, CSS, HTML)
+                    return
 
-            await page.route("**/*", block_heavy_resources)
+                if not is_safe_url(req_url):
+                    await route.abort()
+                    return
+
+                await route.continue_()  # allow safe requests (JS, CSS, HTML)
+
+            await page.route("**/*", block_heavy_and_unsafe_resources)
 
             await page.goto(
                 url,
@@ -301,6 +311,11 @@ async def _layer2_playwright(url: str) -> dict:
 
 async def scrape_competitor(url: str) -> dict:
     """Run static scrape, rendered scrape, cleaning, validation, then fallback."""
+    try:
+        validate_url(url)
+    except SSRFValidationError:
+        return {"text": "", "clean_text": "", "status": "blocked_unsafe_url"}
+
     cached = _get_cached(url)
     if cached:
         return {

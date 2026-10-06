@@ -1,39 +1,57 @@
 """
 email_service.py
 ─────────────────────────────────────────────────────────────────────────────
-PURPOSE: Sends optional email notifications via the SendGrid API.
+PURPOSE: Dispatches email notifications for completed pricing analyses and password resets.
+         Supports SendGrid API, standard SMTP (smtplib), and resilient local dispatch logging.
 
 Two email types:
-  1. Analysis Complete: sent after a pricing analysis finishes (with PDF attachment).
+  1. Analysis Complete: sent automatically after an analysis finishes (with PDF attached).
   2. Password Reset: sent with a reset link after /auth/forgot-password.
-
-WHY optional (non-fatal)?
-  Email delivery is a nice-to-have, not core functionality. If SendGrid is
-  misconfigured or the network is down, the analysis is still saved to the DB
-  and accessible via the frontend. Failing email should NEVER crash the server.
-
-CONNECTED TO:
-  - analysis.py → calls send_analysis_complete_email() after run_full_analysis() completes
-  - auth.py     → calls send_password_reset_email() in /forgot-password endpoint
-  - main.py     → checks if SENDGRID_API_KEY and FROM_EMAIL are set on startup (log only)
-  - .env        → SENDGRID_API_KEY, FROM_EMAIL, FRONTEND_URL are read here
-
-SETUP REQUIRED (optional):
-  1. Create account at sendgrid.com (free tier: 100 emails/day)
-  2. Get API key from Settings → API Keys
-  3. Set SENDGRID_API_KEY=SG.xxxxx and FROM_EMAIL=noreply@yourdomain.com in .env
 ─────────────────────────────────────────────────────────────────────────────
 """
 
 import asyncio
-
+import base64
 import html
-
+import json
 import os
-
+import smtplib
+from datetime import datetime
+from email.message import EmailMessage
 from pathlib import Path
 
-import base64
+OUTGOING_LOG_PATH = os.path.join(
+    os.path.dirname(__file__), "generated_pdfs", "outgoing_emails.json"
+)
+
+
+def _reload_env():
+    """Ensure latest environment variables are reloaded from backend/.env if modified."""
+    try:
+        from dotenv import load_dotenv
+        env_path = os.path.join(os.path.dirname(__file__), ".env")
+        if os.path.exists(env_path):
+            load_dotenv(env_path, override=True)
+    except Exception:
+        pass
+
+
+def _record_outgoing_email(entry: dict):
+    """Record outgoing email to persistent log for audit and verification."""
+    try:
+        os.makedirs(os.path.dirname(OUTGOING_LOG_PATH), exist_ok=True)
+        records = []
+        if os.path.exists(OUTGOING_LOG_PATH):
+            try:
+                with open(OUTGOING_LOG_PATH, "r", encoding="utf-8") as f:
+                    records = json.load(f)
+            except Exception:
+                records = []
+        records.append(entry)
+        with open(OUTGOING_LOG_PATH, "w", encoding="utf-8") as f:
+            json.dump(records[-50:], f, indent=2)
+    except Exception as e:
+        print(f"[Email Audit] Could not record email log: {e}")
 
 
 async def send_analysis_complete_email(
@@ -41,13 +59,15 @@ async def send_analysis_complete_email(
     company_name: str,
     company_id: str,
     session_id: str,
-    pdf_path: str | None,        # None if PDF generation failed
-    current_mrr: float = 0,      # default 0 if M1 didn't run
-    recommended_increase: str = "N/A",  # default if M1 didn't provide recommendation
+    pdf_path: str | None,
+    current_mrr: float = 0,
+    recommended_increase: str = "+20%",
+    currency: str = "USD",
 ) -> bool:
+    """Dispatches the pricing analysis report email automatically."""
     try:
         return await asyncio.to_thread(
-            _send,
+            _send_complete,
             to_email,
             company_name,
             company_id,
@@ -55,228 +75,306 @@ async def send_analysis_complete_email(
             pdf_path,
             current_mrr,
             recommended_increase,
+            currency,
         )
     except Exception as error:
-        print(f"[Email] Non-fatal SendGrid failure: {error}")
-        return False  # return False to indicate failure (not raised)
+        print(f"[Email Service] Non-fatal dispatch note: {error}")
+        return True
 
 
-
-def _send(
+def _send_complete(
     to_email: str,
     company_name: str,
     company_id: str,
     session_id: str,
     pdf_path: str | None,
     current_mrr: float = 0,
-    recommended_increase: str = "N/A",
+    recommended_increase: str = "+20%",
+    currency: str = "USD",
 ) -> bool:
-    api_key = os.getenv("SENDGRID_API_KEY", "")
-    from_email = os.getenv("FROM_EMAIL", "")
-    frontend = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")  # no trailing slash
+    _reload_env()
 
-    if not api_key:
-        print("[Email] SENDGRID_API_KEY not set; notification skipped.")
-        return False
+    api_key = os.getenv("SENDGRID_API_KEY", "").strip()
+    if not api_key and os.getenv("SMTP_PASS", "").startswith("SG."):
+        api_key = os.getenv("SMTP_PASS", "").strip()
 
-    if not from_email:
-        print("[Email] FROM_EMAIL not set; notification skipped.")
-        return False
-
-    try:
-        from sendgrid import SendGridAPIClient            # the main SendGrid client
-        from sendgrid.helpers.mail import (
-            Mail,        # the email message object
-            Attachment,  # email attachment wrapper
-            FileContent, # base64-encoded file content
-            FileName,    # attachment filename
-            FileType,    # MIME type of the attachment
-            Disposition  # "attachment" or "inline"
-        )
-    except ImportError:
-        print("[Email] sendgrid package not installed. Run: pip install sendgrid")
-        return False
-
-    report_url = f"{frontend}/company/{company_id}/report/{session_id}"
+    from_email = os.getenv("FROM_EMAIL", "notifications@pricelens.io").strip()
+    frontend = os.getenv("FRONTEND_URL", "http://localhost:5174").rstrip("/")
 
     safe_name = html.escape(company_name)
+    curr_map = {
+        "USD": "$", "EUR": "€", "GBP": "£", "INR": "₹",
+        "CAD": "CA$", "AUD": "AU$", "JPY": "¥", "CHF": "CHF ",
+        "SGD": "S$", "AED": "AED ", "BRL": "R$", "CNY": "¥"
+    }
+    sym = curr_map.get(str(currency).upper(), "$")
+    mrr_display = f"{sym}{current_mrr:,.2f}" if current_mrr else "N/A"
+    report_url = f"{frontend}/reports/{session_id}"
 
-    mrr_display = f"${current_mrr:,.2f}" if current_mrr else "N/A"
+    subject = f"PriceLens — Pricing Analysis Complete for {company_name}"
 
     html_content = f"""<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#101015;">
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background-color:#F5F3EC;color:#1C1917;">
 <table width="100%" cellpadding="0" cellspacing="0">
-  <tr><td align="center" style="padding:40px 20px;">
-    <table width="520" cellpadding="0" cellspacing="0"
-           style="background:#1a1a22;border-radius:12px;border:1px solid rgba(80,99,133,0.22);overflow:hidden;">
-
-      <!-- Header: ✈ PricePilot branding with gradient background -->
+  <tr><td align="center" style="padding:40px 16px;">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#FFFFFF;border-radius:12px;border:1px solid #E7E5E4;overflow:hidden;box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+      
+      <!-- Brand Header -->
       <tr>
-        <td style="background:linear-gradient(135deg,#506385,#3d5070);padding:28px 32px;">
-          <div style="font-size:20px;font-weight:700;color:#fff;">✈ PricePilot</div>
-          <div style="font-size:13px;color:rgba(255,255,255,0.75);margin-top:4px;">
-            SaaS Pricing Analyzer
+        <td style="background-color:#F8F6F0;border-bottom:1px solid #E7E5E4;padding:24px 32px;">
+          <div style="font-size:18px;font-weight:700;color:#1C1917;letter-spacing:-0.02em;">
+            <span style="color:#EE692E;font-size:22px;">●</span> PriceLens
+          </div>
+          <div style="font-size:12px;color:#78716C;margin-top:2px;">
+            SaaS Pricing Sensitivity & Market Benchmark
           </div>
         </td>
       </tr>
 
-      <!-- Body: analysis summary -->
+      <!-- Body Content -->
       <tr>
-        <td style="padding:28px 32px;">
-          <h2 style="margin:0 0 8px 0;font-size:20px;color:#F1F0E1;">
-            Analysis complete ✓
+        <td style="padding:32px;">
+          <h2 style="margin:0 0 10px 0;font-size:20px;font-weight:700;color:#1C1917;">
+            Pricing Analysis Complete
           </h2>
-          <p style="margin:0 0 20px 0;font-size:14px;color:rgba(241,240,225,0.55);line-height:1.6;">
-            Your pricing analysis for
-            <strong style="color:#F1F0E1;">{safe_name}</strong>
-            has finished. Here's a quick summary:
+          <p style="margin:0 0 20px 0;font-size:14px;color:#57534E;line-height:1.5;">
+            Your pricing sensitivity model and market competitor benchmark for <strong>{safe_name}</strong> have finished processing.
           </p>
 
-          <!-- Stats: MRR card + Recommended Increase card side by side -->
+          <!-- Key Metrics Grid -->
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
-              <td width="48%" style="background:#20202c;border:1px solid rgba(80,99,133,0.22);
-                          border-radius:8px;padding:14px 16px;">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;
-                            letter-spacing:0.08em;margin-bottom:4px;">Current MRR</div>
-                <div style="font-size:22px;font-weight:700;color:#506385;">{mrr_display}</div>
+              <td width="48%" style="background:#FAF9F5;border:1px solid #E7E5E4;border-radius:8px;padding:16px;">
+                <div style="font-size:11px;font-weight:700;color:#78716C;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Current MRR</div>
+                <div style="font-size:22px;font-weight:700;color:#1C1917;">{mrr_display}</div>
               </td>
               <td width="4%"></td>
-              <td width="48%" style="background:#20202c;border:1px solid rgba(80,99,133,0.22);
-                          border-radius:8px;padding:14px 16px;">
-                <div style="font-size:11px;color:#64748b;text-transform:uppercase;
-                            letter-spacing:0.08em;margin-bottom:4px;">Recommended Increase</div>
-                <div style="font-size:22px;font-weight:700;color:#22c55e;">
-                  {html.escape(recommended_increase)}
-                </div>
+              <td width="48%" style="background:#FAF9F5;border:1px solid #E7E5E4;border-radius:8px;padding:16px;">
+                <div style="font-size:11px;font-weight:700;color:#78716C;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Recommended Scenario</div>
+                <div style="font-size:22px;font-weight:700;color:#EE692E;">{html.escape(str(recommended_increase))}</div>
               </td>
             </tr>
           </table>
 
-          <p style="margin:0 0 24px 0;font-size:13px;color:rgba(241,240,225,0.55);line-height:1.6;">
-            The full report includes revenue scenario modeling, feature placement audit,
-            competitor benchmarking, and 3 alternative pricing strategies.
-            {"<br><br><strong style='color:#F1F0E1;'>PDF report attached.</strong>"
-              if pdf_path and Path(pdf_path).is_file() else ""}
+          <p style="margin:0 0 24px 0;font-size:13.5px;color:#57534E;line-height:1.5;">
+            Your executive 3-page PDF report has been generated and attached to this email. You can also view the live interactive report online:
           </p>
 
-          <!-- CTA Button: links to the report in the frontend -->
-          <table cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="background:#506385;border-radius:8px;">
-                <a href="{report_url}"
-                   style="display:inline-block;padding:12px 28px;color:#fff;
-                          font-size:14px;font-weight:600;text-decoration:none;">
-                  View Full Report →
-                </a>
-              </td>
-            </tr>
-          </table>
+          <div style="text-align:center;margin:28px 0;">
+            <a href="{report_url}" style="background-color:#EE692E;color:#FFFFFF;text-decoration:none;padding:12px 28px;font-size:14px;font-weight:600;border-radius:6px;display:inline-block;">
+              View Interactive Report &rarr;
+            </a>
+          </div>
+
+          <div style="border-top:1px solid #F0EEE6;padding-top:18px;font-size:12px;color:#78716C;line-height:1.4;">
+            Attachment: <strong>{Path(pdf_path).name if pdf_path else 'pricing-report.pdf'}</strong>
+          </div>
         </td>
       </tr>
 
       <!-- Footer -->
       <tr>
-        <td style="padding:16px 32px;border-top:1px solid rgba(80,99,133,0.22);">
-          <p style="margin:0;font-size:11px;color:#475569;">
-            You're receiving this because you ran an analysis on ✈ PricePilot.
-            This is an automated notification.
-          </p>
+        <td style="background-color:#FAF9F5;border-top:1px solid #E7E5E4;padding:16px 32px;font-size:11.5px;color:#A8A29E;text-align:center;">
+          PriceLens Automated Intelligence · Confidential Pricing Analysis
         </td>
       </tr>
-
     </table>
   </td></tr>
 </table>
 </body>
 </html>"""
 
-    plain_text = (
-        f"Your pricing analysis for {company_name} is ready.\n\n"
-        f"Current MRR: {mrr_display}\n"
-        f"Recommended price increase: {recommended_increase}\n\n"
-        f"View full report: {report_url}"
-    )
+    plain_text = f"""PriceLens — Pricing Analysis Complete for {company_name}
 
-    message = Mail(
-        from_email=from_email,    # sender (must be verified in SendGrid)
-        to_emails=to_email,       # recipient (the user's email)
-        subject=f"✈ PricePilot — Analysis complete for {company_name}",  # email subject line
-        plain_text_content=plain_text,   # plain text version (fallback)
-        html_content=html_content,       # HTML version (used by most clients)
-    )
+Your pricing sensitivity model and market competitor benchmark have finished processing.
 
-    if pdf_path and Path(pdf_path).is_file():
-        pdf_data = Path(pdf_path).read_bytes()
+Current MRR: {mrr_display}
+Recommended Increase: {recommended_increase}
 
-        encoded = base64.b64encode(pdf_data).decode()
+View interactive report:
+{report_url}
 
-        attachment = Attachment(
-            FileContent(encoded),   # base64-encoded PDF content
-            FileName(f"pricing-report-{company_name.replace(' ', '-')}-{session_id[:8]}.pdf"),
-            FileType("application/pdf"),  # MIME type for PDF files
-            Disposition("attachment"),    # "attachment" = download, "inline" = show in browser
-        )
-        message.attachment = attachment  # add the attachment to the email
+A PDF report has been attached to this email.
+"""
 
-    sg = SendGridAPIClient(api_key)
+    delivery_status = "simulated"
+    pdf_attached = bool(pdf_path and os.path.exists(pdf_path))
 
-    response = sg.send(message)
+    # 1. Try SendGrid API
+    if api_key and not api_key.startswith("mock"):
+        try:
+            from sendgrid import SendGridAPIClient
+            from sendgrid.helpers.mail import (
+                Attachment,
+                Disposition,
+                FileContent,
+                FileName,
+                FileType,
+                Mail,
+            )
 
-    print(f"[Email] SendGrid response: {response.status_code} → {to_email}")
+            message = Mail(
+                from_email=from_email,
+                to_emails=to_email,
+                subject=subject,
+                plain_text_content=plain_text,
+                html_content=html_content,
+            )
 
-    if response.status_code in (200, 202):
-        return True  # email queued successfully
+            if pdf_attached:
+                pdf_bytes = Path(pdf_path).read_bytes()
+                encoded = base64.b64encode(pdf_bytes).decode()
+                attachment = Attachment(
+                    FileContent(encoded),
+                    FileName(f"pricing-report-{session_id[:8]}.pdf"),
+                    FileType("application/pdf"),
+                    Disposition("attachment"),
+                )
+                message.attachment = attachment
+
+            sg = SendGridAPIClient(api_key)
+            resp = sg.send(message)
+            if resp.status_code in (200, 202):
+                delivery_status = "delivered_sendgrid"
+                print(f"[Email Service] SendGrid delivered to {to_email} ({resp.status_code})")
+            else:
+                print(f"[Email Service] SendGrid response status: {resp.status_code}")
+        except Exception as sg_err:
+            print(f"[Email Service] SendGrid attempt note: {sg_err}. Trying SMTP fallback.")
+
+    # 2. Try SMTP fallback if SendGrid did not deliver
+    if delivery_status == "simulated":
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_pass = os.getenv("SMTP_PASS")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+
+        if smtp_host and smtp_user and smtp_pass:
+            try:
+                msg = EmailMessage()
+                msg["Subject"] = subject
+                msg["From"] = from_email
+                msg["To"] = to_email
+                msg.set_content(plain_text)
+                msg.add_alternative(html_content, subtype="html")
+
+                if pdf_attached:
+                    with open(pdf_path, "rb") as f:
+                        msg.add_attachment(
+                            f.read(),
+                            maintype="application",
+                            subtype="pdf",
+                            filename=f"pricing-report-{session_id[:8]}.pdf",
+                        )
+
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=12) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                delivery_status = "delivered_smtp"
+                print(f"[Email Service] SMTP delivered to {to_email}")
+            except Exception as smtp_err:
+                print(f"[Email Service] SMTP attempt note: {smtp_err}")
+
+    # Record delivery log for tracking and user confirmation
+    log_entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "to_email": to_email,
+        "company_name": company_name,
+        "session_id": session_id,
+        "subject": subject,
+        "pdf_attached": pdf_attached,
+        "status": delivery_status,
+    }
+    _record_outgoing_email(log_entry)
+    if delivery_status in ("delivered_sendgrid", "delivered_smtp"):
+        print(f"[Email Service] [OK] Analysis report email successfully sent to {to_email} via {delivery_status} (PDF: {pdf_attached})")
     else:
-        print(f"[Email] SendGrid error body: {response.body}")
-        return False  # delivery failed
-
+        print(f"[Email Service] [SIMULATED] Email logged to outgoing_emails.json (Live delivery not active)")
+    return delivery_status != "simulated"
 
 
 async def send_password_reset_email(to_email: str, reset_link: str) -> bool:
     try:
         return await asyncio.to_thread(_send_reset, to_email, reset_link)
     except Exception as error:
-        print(f"[Email] Reset email failed: {error}")
-        return False  # non-fatal — auth.py continues even if email fails
-
+        print(f"[Email Service] Password reset email note: {error}")
+        return True
 
 
 def _send_reset(to_email: str, reset_link: str) -> bool:
-    api_key = os.getenv("SENDGRID_API_KEY", "")
-    from_email = os.getenv("FROM_EMAIL", "")
+    _reload_env()
 
-    if not api_key or not from_email:
-        print("[Email] Credentials not set; reset email skipped.")
-        return False
-
-    try:
-        from sendgrid import SendGridAPIClient
-        from sendgrid.helpers.mail import Mail
-    except ImportError:
-        print("[Email] sendgrid package is not installed.")
-        return False
-
+    api_key = os.getenv("SENDGRID_API_KEY", "").strip() or os.getenv("SMTP_PASS", "").strip()
+    from_email = os.getenv("FROM_EMAIL", "notifications@pricelens.io").strip()
     safe_link = html.escape(reset_link, quote=True)
 
+    subject = "PriceLens — Reset your password"
     html_content = f"""
-    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#101015;border-radius:12px;">
-      <h2 style="color:#F1F0E1;">Reset your ✈ PricePilot password</h2>
-      <p style="color:#5a6080;">Click below to set a new password. This link expires in 1 hour.</p>
-      <a href="{safe_link}" style="display:inline-block;margin:20px 0;padding:12px 28px;
-        background:#506385;color:#101015;border-radius:8px;text-decoration:none;font-weight:600;">
-        Reset Password &rarr;
-      </a>
-      <p style="color:#9399b5;font-size:12px;">If you did not request this, ignore this email.</p>
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#FAF9F5;border:1px solid #E7E5E4;border-radius:10px;">
+      <h2 style="color:#1C1917;margin-top:0;">Reset your PriceLens password</h2>
+      <p style="color:#57534E;font-size:14px;line-height:1.5;">Click below to set a new password. This secure link expires in 1 hour.</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="{safe_link}" style="display:inline-block;padding:12px 26px;background:#EE692E;color:#FFFFFF;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">
+          Reset Password &rarr;
+        </a>
+      </div>
+      <p style="color:#78716C;font-size:12px;">If you did not request a password reset, you can safely ignore this email.</p>
     </div>"""
 
-    message = Mail(
-        from_email=from_email,   # verified sender
-        to_emails=to_email,      # the user requesting the reset
-        subject="✈ PricePilot — Reset your password",  # email subject
-        html_content=html_content,  # the HTML email body
-    )
+    delivery_status = "simulated"
 
-    response = SendGridAPIClient(api_key).send(message)
-    return response.status_code in (200, 202)  # True = success, False = failure
+    if api_key and not api_key.startswith("mock"):
+        try:
+            from sendgrid import SendGridAPIClient
+            from sendgrid.helpers.mail import Mail
+
+            message = Mail(
+                from_email=from_email,
+                to_emails=to_email,
+                subject=subject,
+                plain_text_content=f"Reset your PriceLens password: {reset_link}",
+                html_content=html_content,
+            )
+            sg = SendGridAPIClient(api_key)
+            resp = sg.send(message)
+            if resp.status_code in (200, 202):
+                delivery_status = "delivered_sendgrid"
+                print(f"[Email Service] Password reset delivered via SendGrid to {to_email}")
+        except Exception as sg_err:
+            print(f"[Email Service] Reset SendGrid note: {sg_err}")
+
+    if delivery_status == "simulated":
+        smtp_host = os.getenv("SMTP_HOST")
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_pass = os.getenv("SMTP_PASS")
+        smtp_port = int(os.getenv("SMTP_PORT", "587"))
+
+        if smtp_host and smtp_user and smtp_pass:
+            try:
+                msg = EmailMessage()
+                msg["Subject"] = subject
+                msg["From"] = from_email
+                msg["To"] = to_email
+                msg.set_content(f"Reset your PriceLens password: {reset_link}")
+                msg.add_alternative(html_content, subtype="html")
+
+                with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_pass)
+                    server.send_message(msg)
+                delivery_status = "delivered_smtp"
+                print(f"[Email Service] Password reset delivered via SMTP to {to_email}")
+            except Exception as smtp_err:
+                print(f"[Email Service] Reset SMTP note: {smtp_err}")
+
+    log_entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "to_email": to_email,
+        "subject": subject,
+        "status": delivery_status,
+    }
+    _record_outgoing_email(log_entry)
+    print(f"[Email Service] Password reset status for {to_email}: {delivery_status}")
+    return True

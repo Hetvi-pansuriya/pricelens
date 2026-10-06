@@ -44,6 +44,8 @@ class Company(Base):
 
     industry = Column(String, nullable=False)
 
+    currency = Column(String, nullable=False, default="USD")
+
     description = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -111,6 +113,8 @@ class Competitor(Base):
     clean_scraped_text = Column(Text, nullable=True)
 
     scrape_status = Column(String, nullable=False, default="pending")
+
+    last_scraped_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

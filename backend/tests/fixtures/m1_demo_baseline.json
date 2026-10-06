@@ -1,0 +1,199 @@
+{
+  "input": {
+    "tiers": [
+      {
+        "name": "Basic",
+        "price": 49.0,
+        "user_count": 200,
+        "billing_cycle": "monthly"
+      },
+      {
+        "name": "Growth",
+        "price": 149.0,
+        "user_count": 85,
+        "billing_cycle": "monthly"
+      },
+      {
+        "name": "Enterprise",
+        "price": 399.0,
+        "user_count": 22,
+        "billing_cycle": "monthly"
+      }
+    ],
+    "current_mrr": 31243.0
+  },
+  "saas_b2b": {
+    "current_mrr": 31243.0,
+    "scenarios": {
+      "+10%": {
+        "projected_mrr": 33336.28,
+        "user_loss_pct": 3.0,
+        "net_change_pct": 6.7
+      },
+      "+20%": {
+        "projected_mrr": 34492.27,
+        "user_loss_pct": 8.0,
+        "net_change_pct": 10.4
+      },
+      "+30%": {
+        "projected_mrr": 33305.04,
+        "user_loss_pct": 18.0,
+        "net_change_pct": 6.6
+      }
+    },
+    "per_tier": [
+      {
+        "tier_name": "Basic",
+        "current_mrr": 9800.0,
+        "scenarios": {
+          "+10%": {
+            "projected_mrr": 10456.6,
+            "user_loss_pct": 3.0,
+            "net_change_pct": 6.7
+          },
+          "+20%": {
+            "projected_mrr": 10819.2,
+            "user_loss_pct": 8.0,
+            "net_change_pct": 10.4
+          },
+          "+30%": {
+            "projected_mrr": 10446.8,
+            "user_loss_pct": 18.0,
+            "net_change_pct": 6.6
+          }
+        }
+      },
+      {
+        "tier_name": "Growth",
+        "current_mrr": 12665.0,
+        "scenarios": {
+          "+10%": {
+            "projected_mrr": 13513.56,
+            "user_loss_pct": 3.0,
+            "net_change_pct": 6.7
+          },
+          "+20%": {
+            "projected_mrr": 13982.16,
+            "user_loss_pct": 8.0,
+            "net_change_pct": 10.4
+          },
+          "+30%": {
+            "projected_mrr": 13500.89,
+            "user_loss_pct": 18.0,
+            "net_change_pct": 6.6
+          }
+        }
+      },
+      {
+        "tier_name": "Enterprise",
+        "current_mrr": 8778.0,
+        "scenarios": {
+          "+10%": {
+            "projected_mrr": 9366.13,
+            "user_loss_pct": 3.0,
+            "net_change_pct": 6.7
+          },
+          "+20%": {
+            "projected_mrr": 9690.91,
+            "user_loss_pct": 8.0,
+            "net_change_pct": 10.4
+          },
+          "+30%": {
+            "projected_mrr": 9357.35,
+            "user_loss_pct": 18.0,
+            "net_change_pct": 6.6
+          }
+        }
+      }
+    ],
+    "recommended_increase": "+20%",
+    "reasoning": "+20% increase yields highest projected MRR of $34,492.27 (+10.4% change) with an estimated 8.0% user loss \u2014 best balance of revenue gain and acceptable churn."
+  },
+  "default": {
+    "current_mrr": 31243.0,
+    "scenarios": {
+      "+10%": {
+        "projected_mrr": 32648.94,
+        "user_loss_pct": 5.0,
+        "net_change_pct": 4.5
+      },
+      "+20%": {
+        "projected_mrr": 32992.61,
+        "user_loss_pct": 12.0,
+        "net_change_pct": 5.6
+      },
+      "+30%": {
+        "projected_mrr": 30461.93,
+        "user_loss_pct": 25.0,
+        "net_change_pct": -2.5
+      }
+    },
+    "per_tier": [
+      {
+        "tier_name": "Basic",
+        "current_mrr": 9800.0,
+        "scenarios": {
+          "+10%": {
+            "projected_mrr": 10241.0,
+            "user_loss_pct": 5.0,
+            "net_change_pct": 4.5
+          },
+          "+20%": {
+            "projected_mrr": 10348.8,
+            "user_loss_pct": 12.0,
+            "net_change_pct": 5.6
+          },
+          "+30%": {
+            "projected_mrr": 9555.0,
+            "user_loss_pct": 25.0,
+            "net_change_pct": -2.5
+          }
+        }
+      },
+      {
+        "tier_name": "Growth",
+        "current_mrr": 12665.0,
+        "scenarios": {
+          "+10%": {
+            "projected_mrr": 13234.93,
+            "user_loss_pct": 5.0,
+            "net_change_pct": 4.5
+          },
+          "+20%": {
+            "projected_mrr": 13374.24,
+            "user_loss_pct": 12.0,
+            "net_change_pct": 5.6
+          },
+          "+30%": {
+            "projected_mrr": 12348.38,
+            "user_loss_pct": 25.0,
+            "net_change_pct": -2.5
+          }
+        }
+      },
+      {
+        "tier_name": "Enterprise",
+        "current_mrr": 8778.0,
+        "scenarios": {
+          "+10%": {
+            "projected_mrr": 9173.01,
+            "user_loss_pct": 5.0,
+            "net_change_pct": 4.5
+          },
+          "+20%": {
+            "projected_mrr": 9269.57,
+            "user_loss_pct": 12.0,
+            "net_change_pct": 5.6
+          },
+          "+30%": {
+            "projected_mrr": 8558.55,
+            "user_loss_pct": 25.0,
+            "net_change_pct": -2.5
+          }
+        }
+      }
+    ],
+    "recommended_increase": "+20%",
+    "reasoning": "+20% increase yields highest projected MRR of $32,992.61 (+5.6% change) with an estimated 12.0% user loss \u2014 best balance of revenue gain and acceptable churn."
+  }
+}

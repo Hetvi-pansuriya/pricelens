@@ -1,4 +1,4 @@
-﻿"""
+"""
 groq_utils.py
 â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 PURPOSE: Shared helper that wraps the Groq AI API with retry logic,
@@ -26,28 +26,26 @@ import re
 
 import os
 
-GROQ_MODEL = "openai/gpt-oss-120b"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+if "openai" in GROQ_MODEL.lower():
+    GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
 async def call_groq_with_retry(client, prompt: str, max_retries: int = 3) -> dict:
     """
     Call the Groq chat completion API with retry logic.
-
-    - On JSON parse error: re-prompts asking for clean JSON (once)
-    - On rate-limit / 429 error: waits 30 seconds then retries
-    - On other errors: breaks immediately
-    Raises ValueError if all retries exhausted.
     """
-    last_error = None
+    if client is None:
+        raise ValueError("GROQ client is not configured")
 
+    last_error = None
     current_prompt = prompt
 
     for attempt in range(max_retries):
         try:
             response = await asyncio.to_thread(
-                client.chat.completions.create,  # the synchronous Groq API method
-
-                model="openai/gpt-oss-120b",
+                client.chat.completions.create,
+                model=GROQ_MODEL,
 
                 messages=[
                     {
@@ -93,16 +91,14 @@ async def call_groq_with_retry(client, prompt: str, max_retries: int = 3) -> dic
                 )
             continue
 
-        except Exception as e:
-            error_str = str(e)  # convert the exception to a string for inspection
-
-            if "rate_limit" in error_str.lower() or "429" in error_str or "rate limit" in error_str.lower():
-                wait_seconds = 30  # how long to wait before retrying (Groq resets quickly)
+            if "rate_limit" in error_str.lower() or "429" in error_str:
+                wait_seconds = 5
                 print(f"Groq rate limit hit on attempt {attempt + 1}, waiting {wait_seconds}s...")
                 await asyncio.sleep(wait_seconds)
                 continue
 
-            last_error = error_str  # save for the final ValueError message
-            break  # exit the for loop immediately
+            last_error = error_str
+            break
 
-    raise ValueError(f"Groq API failed after {max_retries} retries: {last_error}")
+    raise ValueError(f"Groq API call failed: {last_error}")
+

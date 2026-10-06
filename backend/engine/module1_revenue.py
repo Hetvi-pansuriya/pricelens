@@ -123,17 +123,25 @@ def run_module1(company_data: dict) -> dict:
 
     best_scenario = max(SCENARIOS, key=lambda s: aggregate_scenarios[s]["projected_mrr"])
 
-    best_data = aggregate_scenarios[best_scenario]
+    currency = str(company_data.get("currency") or "USD").upper()
+    curr_map = {
+        "USD": "$", "EUR": "€", "GBP": "£", "INR": "₹",
+        "CAD": "CA$", "AUD": "AU$", "JPY": "¥", "CHF": "CHF ",
+        "SGD": "S$", "AED": "AED ", "BRL": "R$", "CNY": "¥"
+    }
+    curr_symbol = curr_map.get(currency, f"{currency} " if len(currency) == 3 else "$")
 
     reasoning = (
         f"{best_scenario} increase yields highest projected MRR of "
-        f"${best_data['projected_mrr']:,.2f} "
+        f"{curr_symbol}{best_data['projected_mrr']:,.2f} "
         f"({best_data['net_change_pct']:+.1f}% change) "
         f"with an estimated {best_data['user_loss_pct']:.1f}% user loss — "
         f"best balance of revenue gain and acceptable churn."
     )
 
     return {
+        "currency": currency,
+        "currency_symbol": curr_symbol,
         "current_mrr": round(current_mrr, 2),          # total MRR right now (e.g., 31243.0)
         "scenarios": aggregate_scenarios,               # {"+10%": {...}, "+20%": {...}, "+30%": {...}}
         "per_tier": per_tier_results,                   # breakdown per tier
