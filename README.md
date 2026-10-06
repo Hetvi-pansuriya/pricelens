@@ -1,457 +1,332 @@
-<div align="center">
+# PriceLens
 
-<img src="https://img.shields.io/badge/PricePilot-SaaS%20Pricing%20Analyzer-7c6fff?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMyAxN2w0LTggNSAzIDQtMTAgNCAxNSIgc3Ryb2tlPSIjN2M2ZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==" />
+Automated SaaS pricing sensitivity modeling, AI feature tier auditing, and market competitor benchmarking.
 
-# PricePilot — Automated SaaS Pricing Sensitivity Analyzer
+PriceLens evaluates a software company's packaging and pricing structure in under 45 seconds. It delivers quantitative price elasticity projections, audits feature placement across tiers, benchmarks live competitor pricing pages, and produces an executive-ready 3-page PDF report.
 
-**Know what your pricing is really worth.**
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-059669?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-0284c7?style=flat-square&logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5.0-6366f1?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
+[![WeasyPrint](https://img.shields.io/badge/WeasyPrint-HTML%20to%20PDF-be185d?style=flat-square)](https://weasyprint.org/)
+[![Groq AI](https://img.shields.io/badge/Groq-Llama%203.3%2070B-f97316?style=flat-square)](https://groq.com/)
 
-A full-stack AI-powered tool that analyzes a SaaS company's pricing structure and generates a complete pricing strategy report — revenue sensitivity modeling, feature tier audit, competitor benchmarking, and three alternative pricing structures — in under 60 seconds.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-pricing--analyzer--32hw.vercel.app-22c55e?style=flat-square&logo=vercel)](https://pricing-analyzer-32hw.vercel.app/)
-[![Backend API](https://img.shields.io/badge/Backend%20API-Render-7c6fff?style=flat-square&logo=render)](https://pricing-analyzer-8u3n.onrender.com/docs)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-61dafb?style=flat-square&logo=react)](https://react.dev/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Render-336791?style=flat-square&logo=postgresql)](https://render.com/)
+## System Architecture
 
-</div>
+PriceLens uses an asynchronous decoupled architecture. The frontend polls an asynchronous ticket pipeline during analysis, ensuring neither client network connections nor server workers block or timeout during web scraping and AI inference.
 
----
+```mermaid
+flowchart TB
+    subgraph Client ["Client Layer (React 18 + Vite)"]
+        UI[Responsive SPA Interface]
+        AuthCtx[Auth Context & JWT Store]
+        AxiosClient[Axios Client + Interceptors]
+        Poller[Asynchronous Ticket Poller]
+    end
 
-## What It Does
+    subgraph Gateway ["API & Security Gateway (FastAPI)"]
+        RouterAuth["/auth (JWT, Lockout Protection)"]
+        RouterComp["/companies (CRUD & Duplication)"]
+        RouterSetup["/setup (AI Scraper, CSV, Seeders)"]
+        RouterAnalysis["/analysis (Ticket Dispatch & Polling)"]
+        RateLimiter["SlowAPI Rate Limiter"]
+    end
 
-Every SaaS company sets its pricing once and rarely revisits it. The result: significant revenue left on the table, enterprise-value features given away free, and no idea how competitors are positioned.
+    subgraph Workers ["Analysis & Intelligence Pipeline"]
+        Scraper["5-Layer Web Scraper (Requests + Playwright)"]
+        Mod1["Module 1: Pure Python Elasticity & MRR Math"]
+        Mod2["Module 2: Groq AI Feature Tier Audit"]
+        Mod3["Module 3: Groq AI Competitor Benchmark"]
+        Mod4["Module 4: Groq AI Strategic Restructuring"]
+    end
 
-PricePilot solves this. A founder enters their current pricing tiers, features, user counts, and optional competitor URLs. In ~30 seconds, the tool produces a report that would take a consultant three weeks:
+    subgraph Deliverables ["Export & Notification Engine"]
+        PDFGen["WeasyPrint Executive 3-Page PDF Generator"]
+        Mailer["Email Service (SendGrid / SMTP)"]
+    end
 
-| Module | What it does |
-|--------|-------------|
-| **Revenue Sensitivity** | Pure Python math — models MRR impact of +10%, +20%, +30% price increases using industry elasticity curves |
-| **Feature Tier Audit** | Groq AI classifies each feature as Gatekeeper / Blocker / Right-placed / Undifferentiated |
-| **Competitor Benchmark** | Scrapes competitor pricing pages (3-layer fallback) and benchmarks via AI |
-| **Alternative Strategies** | Generates Conservative, Aggressive, and Strategic pricing restructures with predicted MRR impact |
+    subgraph Persistence ["Data Store (PostgreSQL)"]
+        DB[(Relational DB: Users, Companies, Tiers, Reports)]
+    end
 
----
+    UI --> AxiosClient
+    AxiosClient --> RateLimiter
+    RateLimiter --> RouterAuth & RouterComp & RouterSetup & RouterAnalysis
+    RouterAuth & RouterComp --> DB
 
-## Tech Stack
+    RouterSetup --> Scraper
+    RouterAnalysis --> Poller
+    Poller -.->|Poll every 2s| RouterAnalysis
 
-### Backend
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Framework | **FastAPI** (Python) | Native async, perfect for parallel Groq calls + SSE progress stream |
-| AI | **Groq API** (openai/gpt-oss-120b) | Fast inference, reliable JSON output mode, generous free tier |
-| Database | **PostgreSQL** (Render) | Relational — companies → tiers → features hierarchy maps cleanly |
-| ORM | **SQLAlchemy async + Alembic** | Type-safe async queries, schema migrations |
-| Web Scraping | **requests + BeautifulSoup → Playwright fallback** | 3-layer system: fast static scrape → JS-rendered pages → manual paste |
-| PDF Export | **WeasyPrint + Jinja2** | HTML/CSS report template → PDF, no headless Chrome needed |
-| Email | **SendGrid** | Sends analysis-complete email with PDF attached |
-| Auth | **JWT (python-jose) + bcrypt** | Stateless auth, password reset flow included |
-| Real-time | **SSE (sse-starlette)** | One-way progress stream from analysis engine to frontend |
-
-### Frontend
-| Layer | Technology |
-|-------|-----------|
-| Framework | **React 18** (functional components + hooks) |
-| Routing | **React Router v6** |
-| HTTP | **Axios** with JWT interceptor |
-| Charts | **Recharts** (revenue sensitivity line chart) |
-| Styling | **Plain CSS** with CSS custom properties — no Tailwind, no UI libraries |
-| State | **React Context + useState** — no Redux |
-| Build | **Vite** |
-
-### Infrastructure
-| Service | Purpose |
-|---------|---------|
-| **Render** (free tier) | Backend API hosting + PostgreSQL database |
-| **Vercel** | Frontend hosting |
-
----
-
-## Architecture — How It Works
-
-```
-User submits pricing data
-        │
-        ▼
-React frontend validates → POST /analysis/start/:companyId
-        │
-        ▼
-FastAPI creates AnalysisSession in PostgreSQL
-Fires background task → run_full_analysis()
-        │
-        ├─── asyncio.gather() ──────────────────┐
-        │    Module 1: Revenue math (pure Python)│  ← parallel
-        │    Module 2: Feature audit (Groq AI)   │
-        │    └──────────────────────────────────┘
-        │
-        ├─── Module 3: Competitor benchmark (Groq AI) ← sequential
-        │
-        ├─── Module 4: Strategy generation (Groq AI) ← sequential
-        │
-        ▼
-Report JSON assembled → saved to DB → PDF generated → Email sent
-        │
-        ▼
-Frontend polls GET /analysis/history every 3s
-→ status: completed → auto-navigates to Report page
+    RouterAnalysis --> Mod1 & Mod2
+    Mod1 & Mod2 --> Mod3
+    Mod3 --> Mod4
+    Mod4 --> DB
+    Mod4 --> PDFGen
+    PDFGen --> Mailer
+    Mailer -.->|Auto-dispatch Report| UserEmail[Registered User Email]
 ```
 
-**Module 1 runs in parallel with Module 2** (using `asyncio.gather()`) because they are independent. Modules 3 and 4 run sequentially — each needs the previous module's output.
 
----
+## Detailed Execution Flow
 
-## Project Structure
+```
+1. Input & Onboarding
+   ├── Web URL Scrape      -> Headless browser fetches public pricing tables
+   ├── CSV Import          -> Parses tiers, prices, subscriber counts, and churn rates
+   ├── Manual Wizard       -> Interactive builder with tag clouds and industry suggestions
+   └── Instant Demo        -> Preloaded CloudHR Pro sample company
+
+2. Background Analysis Pipeline (Ticket-Based)
+   ├── POST /analysis/companies/:id/run creates a persistent ticket in PostgreSQL
+   ├── Module 1: Deterministic price elasticity modeling (+10%, +20%, +30% scenarios)
+   ├── Module 2: Groq AI audits feature tiering (Gatekeeper, Blocker, Right-Placed)
+   ├── Module 3: Scrapes and benchmarks competitor pricing pages
+   └── Module 4: Synthesizes Conservative, Aggressive, and Strategic packages
+
+3. Delivery & Output
+   ├── Real-time UI updates via ticket status polling
+   ├── Publication of interactive 4-module web dashboard
+   ├── Compilation of executive 3-page WeasyPrint PDF report
+   └── Automatic email delivery with PDF attachment (SendGrid / SMTP)
+```
+
+
+## Core Analysis Modules
+
+### 1. Revenue Sensitivity Modeling (Deterministic Python)
+- Calculates baseline Monthly Recurring Revenue (MRR) and Annual Recurring Revenue (ARR).
+- Applies sector-calibrated price elasticity coefficients based on target customer segment (SMB, Mid-Market, Enterprise).
+- Projects revenue impact and net change across +10%, +20%, and +30% price increases, factoring in predicted customer churn.
+- Guaranteed mathematical determinism: Identical inputs consistently yield identical financial models.
+
+### 2. Feature Tier Audit (Groq AI)
+- Evaluates feature distribution against SaaS packaging benchmarks.
+- Classifies each feature into one of four operational categories:
+  - Gatekeeper: High-value enterprise features that drive tier upgrades (e.g., SSO, audit logs, custom roles).
+  - Blocker: Essential core capabilities mistakenly placed behind premium paywalls.
+  - Right-Placed: Appropriately positioned features matching user willingness to pay.
+  - Undifferentiated: Common utilities that do not justify pricing premiums.
+
+### 3. Competitor Benchmarking (5-Layer Scraper + AI)
+- Multi-tier extraction engine:
+  - Layer 1: Fast asynchronous HTTP request (`requests` / `httpx`).
+  - Layer 2: Headless browser automation (`Playwright` Chromium) for dynamic JavaScript applications.
+  - Layer 3: Heuristic HTML body extraction stripping boilerplate and navigation.
+  - Layer 4: Fallback heuristic text parser.
+  - Layer 5: Manual pricing text paste override.
+- Compares tier price points, packaging models, and feature parity against competitors.
+
+### 4. Strategic Packaging & Recommendations
+- Synthesizes findings into three concrete, actionable strategies:
+  - Conservative Plan: Low-risk price increase with minimal expected churn.
+  - Aggressive Plan: Maximizes MRR yield for products with strong pricing power.
+  - Strategic Plan: Structural re-packaging, moving gatekeeper features to enterprise tiers.
+
+
+## Repository Layout
 
 ```
 pricing-analyzer/
+├── BACKEND_ARCHITECTURE.md        # Deep dive into backend logic, tests, and workers
+├── FRONTEND_ARCHITECTURE.md       # Frontend design system, routing, and dictionary
+├── docker-compose.yml             # Local PostgreSQL 16 container definition
+│
 ├── backend/
-│   ├── main.py                  # FastAPI app, CORS, lifespan, Groq client init
-│   ├── database.py              # Async SQLAlchemy engine + session factory
-│   ├── models.py                # 7 DB tables: User, Company, PricingTier, Feature,
-│   │                            #   Competitor, AnalysisSession, Report, PasswordResetToken
-│   ├── schemas.py               # Pydantic request/response validation schemas
-│   ├── email_service.py         # SendGrid email — analysis complete + password reset
-│   ├── scraper.py               # 3-layer competitor scraper (requests→Playwright→manual)
-│   ├── pdf_generator.py         # Jinja2 HTML template → WeasyPrint PDF
-│   ├── requirements.txt
-│   ├── build.sh                 # Render build: install WeasyPrint system deps
-│   ├── alembic/                 # DB migrations
-│   ├── engine/
-│   │   ├── groq_utils.py        # Shared Groq helper: retry logic, JSON parsing, rate limits
-│   │   ├── module1_revenue.py   # Pure Python MRR + price elasticity simulation
-│   │   ├── module2_features.py  # Groq: feature classification (gatekeeper/blocker/etc)
-│   │   ├── module3_benchmark.py # Groq: competitor parsing + value score comparison
-│   │   └── module4_recommendations.py  # Groq: 3 alternative pricing structures
-│   └── routers/
-│       ├── auth.py              # Signup, login, forgot/reset password, JWT
-│       ├── companies.py         # CRUD: companies, tiers, features (+ bulk add)
-│       ├── competitors.py       # Add/list/manual competitors (max 5 per company)
-│       └── analysis.py          # Start analysis, SSE progress stream, get report/PDF/history
+│   ├── main.py                    # FastAPI application, CORS, and router registration
+│   ├── models.py                  # SQLAlchemy declarative relational schemas
+│   ├── schemas.py                 # Pydantic v2 validation models
+│   ├── database.py                # Async engine and sessionmaker
+│   ├── rate_limiter.py            # SlowAPI endpoint rate limiting & brute-force protection
+│   ├── url_safety.py              # SSRF protection and URL validation
+│   ├── scraper.py                 # Multi-layer competitor pricing page scraper
+│   ├── pdf_generator.py           # WeasyPrint 3-page executive PDF generator
+│   ├── email_service.py           # SendGrid and SMTP email dispatcher with audit logging
+│   ├── build.sh                   # Production build script installing WeasyPrint dependencies
+│   ├── requirements.txt           # Python dependencies
+│   ├── alembic/                   # Database migrations
+│   ├── engine/                    # The four pricing analysis modules
+│   │   ├── groq_utils.py          # AI client wrapper with retry logic
+│   │   ├── module1_revenue.py     # Deterministic elasticity and MRR modeling
+│   │   ├── module2_features.py    # AI feature tier classification
+│   │   ├── module3_benchmark.py   # AI competitor value comparison
+│   │   └── module4_recommendations.py # AI strategic packaging synthesis
+│   ├── routers/                   # HTTP endpoints grouped by domain
+│   │   ├── auth.py                # Authentication, password resets, and user sessions
+│   │   ├── companies.py           # Company CRUD and duplication
+│   │   ├── setup.py               # CSV parsing, web scrapers, and sample seeders
+│   │   ├── competitors.py         # Competitor management and scraping
+│   │   └── analysis.py            # Analysis execution, ticket polling, and PDF retrieval
+│   └── tests/                     # Pytest automated test suite (34 unit & integration tests)
 │
 └── frontend/
-    ├── src/
-    │   ├── api/                 # All Axios calls in one place — never in components
-    │   │   ├── client.js        # Axios instance + 401 auto-logout interceptor
-    │   │   ├── auth.js
-    │   │   ├── companies.js
-    │   │   ├── tiers.js
-    │   │   ├── features.js
-    │   │   ├── competitors.js
-    │   │   └── analysis.js
-    │   ├── context/
-    │   │   └── AuthContext.jsx  # Token storage, login/logout/deleteAccount
-    │   ├── hooks/
-    │   │   └── usePolling.js    # Generic polling hook with cleanup
-    │   ├── data/
-    │   │   └── industryFeatures.js  # Industry-aware feature suggestions per tier
-    │   ├── components/
-    │   │   ├── common/          # Button, Input, Card, Spinner, ErrorBanner, EmptyState, Badge
-    │   │   ├── layout/          # Navbar, ProtectedRoute
-    │   │   ├── setup/           # TierFormCard, FeatureTagInput, CompetitorInput
-    │   │   └── report/          # RevenueChart, FeatureAuditTable, CompetitorTable,
-    │   │                        #   StrategyCard, ExecutiveSummary
-    │   ├── pages/
-    │   │   ├── Login.jsx / Signup.jsx
-    │   │   ├── ForgotPassword.jsx / ResetPassword.jsx
-    │   │   ├── Dashboard.jsx    # Company grid with stats
-    │   │   ├── CompanySetup.jsx # 3-step wizard: info → tiers+features → competitors
-    │   │   ├── AnalysisWaiting.jsx  # SSE + polling fallback, 4-step progress
-    │   │   ├── Report.jsx       # Full report: chart, audit table, strategies, PDF download
-    │   │   ├── History.jsx      # Per-company analysis history + compare selector
-    │   │   ├── AllHistory.jsx   # Global history across all companies
-    │   │   ├── ReportCompare.jsx # Side-by-side MRR + feature diff between 2 reports
-    │   │   └── ProfileSettings.jsx  # Email display + account deletion
-    │   └── styles/
-    │       ├── variables.css    # ALL design tokens: colors, spacing, radius, typography
-    │       ├── global.css       # Resets, body defaults, scrollbar
-    │       ├── layout.css       # .stack, .row, .grid-auto, .page-container utilities
-    │       └── components.css   # Shared: .card, .btn, .form-field, .badge, .tag
-    └── index.html
+    ├── index.html                 # HTML entry point with modern typography
+    ├── package.json               # Node.js dependencies
+    ├── vite.config.js             # Vite configuration
+    └── src/
+        ├── App.jsx                # Application root and route definitions
+        ├── main.jsx               # React DOM mounting
+        ├── index.css              # Font declarations and root resets
+        ├── api/                   # Centralized Axios services with JWT interceptors
+        │   ├── client.js          # HTTP client instance
+        │   ├── auth.js            # Auth requests
+        │   ├── companies.js       # Company API calls
+        │   ├── setup.js           # Setup & import endpoints
+        │   ├── tiers.js           # Tier and feature management
+        │   ├── competitors.js     # Competitor operations
+        │   └── analysis.js        # Analysis ticket & report endpoints
+        ├── components/            # Reusable UI elements
+        │   ├── common/            # AccountModal, StatusBadge
+        │   └── layout/            # AppLayout, Sidebar, ProtectedRoute
+        ├── context/
+        │   └── AuthContext.jsx    # User session state management
+        ├── pages/                 # Full-page views
+        │   ├── Login.jsx          # Swapped layout authentication
+        │   ├── Signup.jsx         # Account creation
+        │   ├── ForgotPassword.jsx # Password reset request
+        │   ├── ResetPassword.jsx  # Token-based password update
+        │   ├── Companies.jsx      # Workspace overview & company switcher
+        │   ├── CompanySetup.jsx   # 4-way tier onboarding wizard
+        │   ├── PricingTiers.jsx   # Tier configuration and feature management
+        │   ├── Competitors.jsx    # Competitor scraping and tracking
+        │   ├── RunAnalysis.jsx    # Ticket-based progress and trigger
+        │   ├── Report.jsx         # 4-module interactive report & PDF download
+        │   ├── CompanyReports.jsx # Company-specific report archive
+        │   └── AnalysisHistory.jsx # Global audit log of completed reports
+        └── styles/                # Vanilla CSS design system
+            ├── variables.css      # CSS variables (colors, typography, shadows)
+            ├── global.css         # Universal element styles
+            ├── layout.css         # Grid layouts, sidebar styling, split auth screens
+            └── components.css     # Buttons, cards, badges, inputs, and tables
 ```
 
----
 
-## API Reference
+## Local Development Setup
 
-**Base URL:** `https://pricing-analyzer-8u3n.onrender.com`  
-**Docs (Swagger UI):** `https://pricing-analyzer-8u3n.onrender.com/docs`
-
-### Auth
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/signup` | Create account → returns JWT |
-| POST | `/auth/login` | Login → returns JWT |
-| POST | `/auth/forgot-password` | Send password reset email |
-| POST | `/auth/reset-password` | Confirm token + new password |
-
-### Companies
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/companies` | List all companies for authenticated user |
-| POST | `/companies` | Create company |
-| GET | `/companies/:id` | Get company with nested tiers, features, competitors |
-| PUT | `/companies/:id` | Update company |
-| DELETE | `/companies/:id` | Delete company (cascades all data) |
-
-### Tiers & Features
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/companies/:id/tiers` | Add tier |
-| PUT | `/companies/:id/tiers/:tid` | Update tier |
-| DELETE | `/companies/:id/tiers/:tid` | Delete tier + cascade features |
-| POST | `/companies/:id/tiers/:tid/features` | Add single feature |
-| POST | `/companies/:id/tiers/:tid/features/bulk` | Add multiple features, returns `{ added, skipped }` |
-| DELETE | `/companies/:id/tiers/:tid/features/:fid` | Remove feature |
-
-### Competitors (max 5 per company)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/companies/:id/competitors` | Add competitor URL — triggers background scrape |
-| GET | `/companies/:id/competitors` | List competitors with scrape status |
-| PATCH | `/companies/:id/competitors/:cid/manual` | Paste pricing text if scraping failed |
-| DELETE | `/companies/:id/competitors/:cid` | Remove competitor |
-
-### Analysis
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/analysis/start/:companyId` | Kick off analysis → returns `{ session_id }` |
-| GET | `/analysis/progress/:sessionId` | **SSE stream** — real-time progress (0→100%) |
-| GET | `/analysis/history/:companyId` | All past sessions with status + report_id |
-| GET | `/analysis/report/:sessionId` | Full report JSON |
-| GET | `/analysis/report/:sessionId/pdf` | Download PDF (requires Authorization header) |
-
----
-
-## Database Schema
-
-```
-users
-  id, email, password_hash, created_at
-  └── companies (cascade delete)
-        id, user_id, name, industry, description, created_at
-        ├── pricing_tiers (cascade delete)
-        │     id, company_id, name, price, billing_cycle, user_count, churn_rate
-        │     └── features (cascade delete)
-        │           id, tier_id, feature_name, description
-        ├── competitors (cascade delete)
-        │     id, company_id, url, raw_scraped_text, scrape_status, created_at
-        └── analysis_sessions (cascade delete)
-              id, company_id, status, progress, started_at, completed_at, error_message
-              └── reports (cascade delete)
-                    id, session_id, json_report (JSONB), pdf_path, created_at
-
-password_reset_tokens
-  id, user_id, token, expires_at, used
-```
-
----
-
-## Running Locally
-
-### Prerequisites
+### Requirements
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL (local) or use SQLite for dev
-- Groq API key — free at [console.groq.com](https://console.groq.com)
+- PostgreSQL 14+ (or Docker)
+- Groq API Key ([console.groq.com](https://console.groq.com))
 
-### Backend
+### 1. Database Setup (Docker)
+```bash
+docker compose up -d
+```
+Starts a PostgreSQL 16 container named `pricelens_db` running on `localhost:5432`.
 
+### 2. Backend Setup
 ```bash
 cd backend
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Install Playwright for JS-rendered page scraping
+# Install Playwright browser binaries for JS scraping
 playwright install chromium
 
-# Create .env file
-cat > .env << 'ENVEOF'
-DATABASE_URL=postgresql+asyncpg://user:password@localhost/pricepilot
-JWT_SECRET=your-random-64-char-secret
-GROQ_API_KEY=your-groq-api-key
-FRONTEND_URL=http://localhost:5173
-
-# Email (optional — analysis complete notifications)
-SENDGRID_API_KEY=your-sendgrid-key
-FROM_EMAIL=your-verified-sender@domain.com
-ENVEOF
-
-# Run database migrations
-alembic upgrade head
-
-# Start server
-uvicorn main:app --reload --port 8000
+# Configure environment
+cp .env.example .env
 ```
 
-Backend runs at `http://localhost:8000`  
-Swagger UI: `http://localhost:8000/docs`
+Ensure your `backend/.env` contains the required keys:
+```env
+DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/pricelens
+JWT_SECRET=your-minimum-32-character-secret-key-goes-here-abc123
+GROQ_API_KEY=gsk_your_groq_api_key_here
+FRONTEND_URL=http://localhost:5173
+```
 
-### Frontend
+Run database migrations and start the server:
+```bash
+alembic upgrade head
+uvicorn main:app --reload --port 8000
+```
+Backend API will be accessible at `http://localhost:8000`.  
+Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
 
+### 3. Frontend Setup
 ```bash
 cd frontend
 
+# Install Node dependencies
 npm install
 
-# Create .env
-echo "VITE_API_URL=http://localhost:8000" > .env
+# Configure environment
+cp .env.example .env
+```
 
+Start Vite dev server:
+```bash
 npm run dev
 ```
+Frontend will be accessible at `http://localhost:5173` (or `http://localhost:5174`).
 
-Frontend runs at `http://localhost:5173`
 
----
+## Automated Test Suite
 
-## Deployment
-
-### Backend on Render
-
-1. Create a **Web Service** on [render.com](https://render.com)
-2. Connect GitHub repo, set **Root Directory** to `backend`
-3. **Build Command:** `./build.sh` (installs WeasyPrint system deps + pip install)
-4. **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
-5. Add **Environment Variables** in Render dashboard:
-
-```
-DATABASE_URL        = postgresql+asyncpg://... (from Render PostgreSQL)
-JWT_SECRET          = <random 64 char string>
-GROQ_API_KEY        = <your Groq key>
-FRONTEND_URL        = https://your-app.vercel.app
-SENDGRID_API_KEY    = <optional>
-FROM_EMAIL          = <optional>
-```
-
-### PostgreSQL on Render
-
-1. Render dashboard → **New → PostgreSQL**
-2. Copy the **Internal Database URL** (for same-region backend connections)
-3. Change `postgresql://` to `postgresql+asyncpg://` in `DATABASE_URL`
-
-### Frontend on Vercel
+The backend contains 34 automated unit and integration tests covering the analysis engine, authentication, security rate limits, and URL safety.
 
 ```bash
-# In frontend directory
-npm run build
-
-# Or connect GitHub repo to Vercel
-# Set environment variable:
-VITE_API_URL = https://your-backend.onrender.com
+cd backend
+pytest tests/
 ```
 
-> **Note:** Render free tier spins down after 15 minutes of inactivity. First request after sleep takes ~30–60 seconds. Keep the tab open before a demo, or upgrade to a paid instance ($7/month).
+Test coverage includes:
+- `test_analysis_reliability.py`: Verifies mathematical determinism and error tolerance across analysis modules.
+- `test_login_tokens.py`: Validates JWT token issuance, verification, and revocation.
+- `test_ownership.py`: Ensures strict multi-tenant isolation (users cannot access another tenant's companies).
+- `test_password_reset.py`: Tests secure token generation, expiration, and password update logic.
+- `test_rate_limits.py`: Verifies brute-force protection and lockout thresholds on auth endpoints.
+- `test_setup_features.py`: Tests CSV import, AI URL extraction, and sample company generation.
+- `test_url_safety.py`: Validates SSRF prevention, blocking localhost and internal IP scraping.
 
----
 
-## Email Notifications (SendGrid)
+## Email Delivery Configuration
 
-When an analysis completes, the user receives an email with:
-- Current MRR and recommended price increase
-- Link to view the full report
-- PDF report attached (if WeasyPrint generated it)
-- Password reset emails also supported
+PriceLens automatically emails completed analysis reports with the 3-page PDF attached. Configure one of the options below in `backend/.env`:
 
-**Setup:**
-1. Create a free account at [sendgrid.com](https://sendgrid.com) (100 emails/day free)
-2. Verify a sender email address
-3. Generate an API key (Settings → API Keys)
-4. Add `SENDGRID_API_KEY` and `FROM_EMAIL` to Render environment variables
+### Option A: SendGrid API
+```env
+SENDGRID_API_KEY=SG.your_api_key_here
+FROM_EMAIL=notifications@yourdomain.com
+```
 
-> SendGrid requires a verified sender domain or email. Free tier supports single sender verification (no domain needed).
+### Option B: Standard SMTP (e.g., Gmail)
+```env
+FROM_EMAIL=your-account@gmail.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-account@gmail.com
+SMTP_PASS=your-16-character-app-password
+```
 
----
+### Option C: Offline / Development Simulation
+If no email credentials are provided, PriceLens logs delivery details to `backend/generated_pdfs/outgoing_emails.json` without interrupting execution.
 
-## Key Technical Decisions
 
-**Why Groq instead of Gemini?**  
-Groq's `response_format: { type: "json_object" }` enforces structured JSON output at the inference level — zero JSON parsing failures. Gemini required retry logic for malformed JSON. Groq's openai/gpt-oss-120b also delivers faster inference.
-
-**Why Module 1 is pure Python (no AI)?**  
-Revenue math must be deterministic and reproducible. A founder running the same analysis twice should get the same MRR numbers. Using AI for math introduces nondeterminism — unacceptable for financial projections.
-
-**Why Module 1 + 2 run in parallel?**  
-They are independent — Module 1 only needs tier data, Module 2 only needs feature data. `asyncio.gather()` runs both simultaneously, saving ~10 seconds per analysis.
-
-**Why store raw scraped text instead of parsed structure?**  
-Competitor websites change layouts constantly. Storing raw text and re-parsing with AI on each analysis means layout changes never break the tool. A traditional CSS selector scraper would need constant maintenance.
-
-**Why plain CSS instead of Tailwind?**  
-One `variables.css` file defines all design tokens. Every component references variables — changing `--color-primary` updates the entire app. No build step dependency, no purging complexity, no class proliferation in JSX.
-
-**Why SSE instead of WebSockets for progress?**  
-Analysis progress is one-directional (server → client only). SSE is simpler: one HTTP endpoint, no handshake, built-in reconnect, natively supported by browsers without a library.
-
----
-
-## Demo Walkthrough
-
-Use this data to test the full analysis flow end-to-end:
-
-**Company:** CloudHR Pro — HR management platform for mid-size companies
-
-| Tier | Price | Users | Churn |
-|------|-------|-------|-------|
-| Basic | $49/mo | 200 | 9% |
-| Growth | $149/mo | 85 | 5% |
-| Enterprise | $399/mo | 22 | 2% |
-
-**Expected MRR:** `(49×200) + (149×85) + (399×22) = $31,243/month`
-
-**Features to add (Basic tier):** Employee profiles, Attendance tracking, Payroll processing, API access  
-*(Gemini should flag Payroll + API as gatekeepers — enterprise value given away free)*
-
-**Competitor URL:** `https://www.rippling.com/pricing`  
-*(If scraping fails, paste manual text: "Rippling Core $8/user/mo, Payroll +$8/user/mo, Enterprise custom pricing with SSO, API, audit logs")*
-
-After running analysis, the report should show:
-- Module 1: MRR $31,243 → recommended +20% increase
-- Module 2: API access on Basic flagged as **Gatekeeper**
-- Module 3: Rippling comparison with feature gaps
-- Module 4: 3 pricing strategies (Conservative ~+12%, Aggressive ~+30%, Strategic)
-
----
-
-## Features at a Glance
-
-- **Multi-company workspace** — manage and analyze multiple products from one dashboard
-- **3-step setup wizard** — basic info → tier builder with feature tags → competitor URLs
-- **Industry-aware feature suggestions** — FeatureTagInput shows relevant features per industry
-- **3-layer competitor scraping** — requests → Playwright (JS pages) → manual paste fallback
-- **Real-time analysis progress** — SSE stream lights up 4 steps as each module completes
-- **Interactive revenue chart** — Recharts line chart with price sensitivity slider
-- **Feature audit table** — color-coded rows (red=gatekeeper, amber=blocker, green=right-placed)
-- **Report comparison** — select 2 analyses, see MRR delta + feature classification changes
-- **PDF download** — WeasyPrint generates a print-ready consultant-style report
-- **Email notification** — SendGrid sends completion email with PDF attached
-- **Password reset flow** — forgot password → email link → set new password
-- **Account deletion** — full data wipe with DELETE confirmation
-- **Global history** — view all analyses across all companies in one place
-
----
-
-## Environment Variables Reference
+## Production Deployment
 
 ### Backend (Render)
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | ✅ | PostgreSQL async URL (`postgresql+asyncpg://...`) |
-| `JWT_SECRET` | ✅ | Random secret for signing JWT tokens |
-| `GROQ_API_KEY` | ✅ | Groq API key from console.groq.com |
-| `FRONTEND_URL` | ✅ | Vercel frontend URL (for CORS + email links) |
-| `SENDGRID_API_KEY` | ⬜ | SendGrid key — email notifications optional |
-| `FROM_EMAIL` | ⬜ | Verified sender email for SendGrid |
+1. Create a new Web Service pointing to your repository.
+2. Set Root Directory to `backend`.
+3. Set Build Command to `./build.sh` (installs Pango, Cairo, and system packages for WeasyPrint).
+4. Set Start Command to `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+5. Supply the required environment variables:
+   - `DATABASE_URL`: Connection string from your managed PostgreSQL instance.
+   - `JWT_SECRET`: Random 64-character secret.
+   - `GROQ_API_KEY`: Production Groq key.
+   - `FRONTEND_URL`: URL of your deployed Vercel frontend.
 
 ### Frontend (Vercel)
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_API_URL` | ✅ | Backend URL (e.g. `https://pricing-analyzer-8u3n.onrender.com`) |
-
----
-
-
-<div align="center">
-
-[Live Demo](https://pricing-analyzer-32hw.vercel.app/) · [API Docs](https://pricing-analyzer-8u3n.onrender.com/docs) 
-
-</div>
+1. Import repository into Vercel.
+2. Set Root Directory to `frontend`.
+3. Add Environment Variable:
+   - `VITE_API_URL`: URL of your deployed backend (e.g., `https://pricelens-api.onrender.com`).
+4. Build command: `npm run build`.
+5. Output directory: `dist`.

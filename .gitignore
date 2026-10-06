@@ -1,0 +1,56 @@
+# Environment & secret files
+.env
+.env.*
+!.env.example
+*.env
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Node & Frontend dependencies
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+dist-ssr/
+*.local
+
+# Python cache & virtual environments
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+.pytest_cache/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+
+# Archives & Temporary files
+*.zip
+*.tar.gz
+*.log
+scratch/
+
+# Backend generated reports and email audit logs
+backend/generated_pdfs/*.pdf
+backend/generated_pdfs/*.json
+!backend/generated_pdfs/.gitkeep
+
+# IDEs & Editor configs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS System Files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+build/

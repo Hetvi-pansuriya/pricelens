@@ -1,8 +1,0 @@
-.status-running {
-  animation: statusPulse 1.2s infinite;
-}
-@keyframes statusPulse {
-  50% {
-    opacity: 0.5;
-  }
-}

@@ -52,6 +52,10 @@ config = context.config
 
 db_url = os.getenv("DATABASE_URL", "")  # read from environment
 if db_url:
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     config.set_main_option("sqlalchemy.url", db_url)
 
 if config.config_file_name is not None:
@@ -88,8 +92,12 @@ def do_run_migrations(connection: Connection) -> None:
 
 async def run_async_migrations() -> None:
     """Run migrations against a live async DB connection."""
+    section = config.get_section(config.config_ini_section, {})
+    if db_url:
+        section["sqlalchemy.url"] = db_url
+
     connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),  # alembic.ini [alembic] settings
+        section,  # alembic.ini [alembic] settings with runtime DB URL
         prefix="sqlalchemy.",   # key prefix for engine settings (sqlalchemy.url, etc.)
         poolclass=pool.NullPool,  # no connection pool — connect once, migrate, disconnect
     )
@@ -98,6 +106,7 @@ async def run_async_migrations() -> None:
         await connection.run_sync(do_run_migrations)  # run the sync migration function
 
     await connectable.dispose()
+
 
 
 def run_migrations_online() -> None:

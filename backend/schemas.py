@@ -65,6 +65,7 @@ class ResetPasswordBody(BaseModel):
 class CompanyCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)  # company name (1–100 chars)
     industry: str = Field(min_length=1)               # industry category (required)
+    currency: Optional[str] = Field(default="USD", max_length=10) # currency code, e.g. USD, INR, EUR
     description: Optional[str] = Field(default=None, max_length=500)  # optional (up to 500 chars)
 
 
@@ -72,6 +73,7 @@ class CompanyResponse(BaseModel):
     id: uuid.UUID            # company's UUID
     name: str                # company name
     industry: str            # industry category
+    currency: str = "USD"    # currency code
     description: Optional[str]  # optional description (None if not set)
     created_at: datetime     # when company was created
     model_config = {"from_attributes": True}
@@ -141,6 +143,7 @@ class CompetitorResponse(BaseModel):
     url: str                # competitor's pricing page URL
     scrape_status: str      # current scrape state (pending/success/failed/etc.)
     clean_scraped_text: Optional[str] = None  # cleaned scraped content (may be None)
+    last_scraped_at: Optional[datetime] = None  # timestamp of last scrape
     created_at: datetime    # when competitor was added
     model_config = {"from_attributes": True}  # read from SQLAlchemy Competitor model
 
@@ -172,6 +175,8 @@ class AnalysisHistoryItem(BaseModel):
     started_at: datetime         # when analysis was kicked off
     completed_at: Optional[datetime]    # when it finished (None if still running)
     report_id: Optional[uuid.UUID]     # the Report UUID (None if not yet saved)
+    mrr: Optional[float] = None        # current MRR from report if available
+    currency: Optional[str] = "USD"    # currency code from company/report
     model_config = {"from_attributes": True}
 
 
@@ -180,8 +185,64 @@ class CompanyDetailResponse(BaseModel):
     id: uuid.UUID                       # company's UUID
     name: str                           # company name
     industry: str                       # industry category
+    currency: str = "USD"               # currency code
     description: Optional[str]          # optional description
     created_at: datetime                # creation timestamp
     tiers: List[TierResponse] = []      # all pricing tiers (each with features inside)
     competitors: List[CompetitorResponse] = []  # all competitor entries
     model_config = {"from_attributes": True}    # read from SQLAlchemy Company model
+
+
+# --- Setup Wizard Schemas ---
+
+class ImportUrlRequest(BaseModel):
+    url: str
+
+
+class DraftTier(BaseModel):
+    name: str
+    price: Optional[float] = None
+    billing_cycle: str = "monthly"
+    user_count: Optional[int] = None
+    churn_rate: Optional[float] = None
+    features: List[str] = []
+    custom_pricing: bool = False
+    verified_price: bool = True
+
+
+class DraftCompanyResponse(BaseModel):
+    company_name: str
+    industry: str
+    description: Optional[str] = None
+    currency: Optional[str] = "USD"
+    tiers: List[DraftTier] = []
+
+
+class BulkFeaturesRequest(BaseModel):
+    features: List[str]
+
+
+class BulkFeaturesResponse(BaseModel):
+    added: List[FeatureResponse]
+    skipped: List[str]
+
+
+class CompetitorSuggestion(BaseModel):
+    name: str
+    homepage_url: str
+    pricing_url: str
+    reason: str
+    verified: bool = False
+
+
+class CompetitorSuggestionsResponse(BaseModel):
+    suggestions: List[CompetitorSuggestion]
+
+
+class FeatureSuggestionsResponse(BaseModel):
+    suggestions: List[str]
+
+
+class StripeImportRequest(BaseModel):
+    stripe_key: str
+

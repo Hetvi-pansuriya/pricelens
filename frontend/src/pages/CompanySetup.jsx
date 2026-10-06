@@ -1,455 +1,860 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import {
-  createCompany,
-  getCompany,
-  listCompanies,
-  updateCompany,
-} from "../api/companies";
-import { listCompetitors } from "../api/competitors";
-import { startAnalysis } from "../api/analysis";
-import Card from "../components/common/Card";
-import Input from "../components/common/Input";
-import Button from "../components/common/Button";
-import Spinner from "../components/common/Spinner";
-import ErrorBanner from "../components/common/ErrorBanner";
-import Badge from "../components/common/Badge";
-import TierFormCard from "../components/setup/TierFormCard";
-import CompetitorInput from "../components/setup/CompetitorInput";
-import "./CompanySetup.css";
-const industries = [
-  "saas_b2b",
-  "saas_b2c",
-  "project_management",
-  "hr_software",
-  "analytics",
-  "crm",
-  "payments",
-  "ecommerce_tools",
-  "other",
-];
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { setupApi } from '../api/setup';
+import { companiesApi } from '../api/companies';
+import { tiersApi } from '../api/tiers';
+import { competitorsApi } from '../api/competitors';
+import { StatusBadge } from '../components/common/StatusBadge';
+import { getCurrencySymbol, SUPPORTED_CURRENCIES } from '../utils/currency';
 
-const parseIndustryDescription = (description = "") => {
-  const marker = "\n\nIndustry description: ";
-  const markerIndex = description.indexOf(marker);
-  if (markerIndex === -1) {
-    return { description, industry_description: "" };
-  }
-  return {
-    description: description.slice(0, markerIndex),
-    industry_description: description.slice(markerIndex + marker.length),
-  };
-};
+export const CompanySetup = () => {
+  const navigate = useNavigate();
 
-const getScrapeStatusBadge = (status) => {
-  const key = String(status || "").toLowerCase();
-  if (key === "pending") return { label: "Scraping...", variant: "warning" };
-  if (key === "success" || key === "success_layer1" || key === "success_layer2") {
-    return { label: "Scraped ✓", variant: "success" };
-  }
-  if (key === "failed") return { label: "Failed", variant: "danger" };
-  if (key === "manual") return { label: "Manual", variant: "info" };
-  if (key === "manual_required") {
-    return { label: "Paste required", variant: "warning" };
-  }
-  return { label: status || "Unknown", variant: "neutral" };
-};
+  // Wizard Step: 1 = Source, 2 = Review tiers, 3 = Competitors
+  const [step, setStep] = useState(1);
 
-export default function CompanySetup() {
-  const p = useParams(),
-    n = useNavigate(),
-    [id, setId] = useState(p.companyId === "new" ? null : p.companyId),
-    [step, setStep] = useState(1),
-    [info, setInfo] = useState({
-      name: "",
-      industry: "saas_b2b",
-      industry_description: "",
-      description: "",
-    }),
-    [tiers, setTiers] = useState([]),
-    [competitors, setCompetitors] = useState([]),
-    [loading, setLoading] = useState(!!id),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
-  useEffect(() => {
-    if (id)
-      getCompany(id)
-        .then((c) => {
-          const parsed = parseIndustryDescription(c.description || "");
-          setInfo({
-            name: c.name,
-            industry: c.industry,
-            industry_description: parsed.industry_description,
-            description: parsed.description,
-          });
-          setTiers(c.tiers || []);
-          setCompetitors(c.competitors || []);
-        })
-        .catch((e) => setError(e.detail))
-        .finally(() => setLoading(false));
-  }, []);
-  const saveInfo = async () => {
-    if (!info.name.trim()) return setError("Company name is required");
-    if (info.industry === "other" && !info.industry_description?.trim()) {
-      return setError("Please describe your industry");
-    }
-    setBusy(true);
+  // Source selection: 'url' | 'text' | 'csv' | 'stripe' | 'manual'
+  const [sourceType, setSourceType] = useState('url');
+
+  // Form inputs
+  const [url, setUrl] = useState('');
+  const [text, setText] = useState('');
+  const [csvFile, setCsvFile] = useState(null);
+  const [stripeKey, setStripeKey] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('saas_b2b');
+  const [currency, setCurrency] = useState('USD');
+  const [description, setDescription] = useState('');
+
+  // Extracted / Draft Data
+  const [draftTiers, setDraftTiers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [warningMessage, setWarningMessage] = useState('');
+
+  // Step 3 Competitors
+  const [createdCompanyId, setCreatedCompanyId] = useState(null);
+  const [competitorUrls, setCompetitorUrls] = useState(['']);
+
+  // Handle Step 1 Submit
+  const handleExtractSource = async (e) => {
+    e.preventDefault();
+    setError('');
+    setWarningMessage('');
+    setLoading(true);
+
     try {
-      if (!id) {
-        const companies = await listCompanies();
-        const duplicate = companies.some(
-          (company) =>
-            company.name.trim().toLowerCase() === info.name.trim().toLowerCase(),
-        );
-        if (duplicate) {
-          setError(
-            "A company with this name is already registered. Please open the existing company or use a different name.",
+      if (sourceType === 'url') {
+        const res = await setupApi.importFromUrl(url);
+        setCompanyName(res.company_name || companyName || 'My Product');
+        setIndustry(res.industry || industry);
+        if (res.currency) setCurrency(res.currency);
+        setDescription(res.description || '');
+        setDraftTiers(res.tiers || []);
+
+        const unconfirmed = (res.tiers || []).filter(t => !t.verified_price);
+        if (unconfirmed.length > 0) {
+          setWarningMessage(
+            `${unconfirmed.length} price needs confirmation. The ${unconfirmed.map(t => t.name).join(', ')} price was not found on the page text. Enter it or mark it as custom pricing.`
           );
+        }
+        setStep(2);
+      } else if (sourceType === 'text') {
+        const res = await setupApi.importFromText(text);
+        setCompanyName(res.company_name || companyName || 'My Product');
+        setIndustry(res.industry || industry);
+        if (res.currency) setCurrency(res.currency);
+        setDescription(res.description || '');
+        setDraftTiers(res.tiers || []);
+        setStep(2);
+      } else if (sourceType === 'csv') {
+        if (!csvFile) {
+          setError('Please select a CSV file.');
+          setLoading(false);
           return;
         }
+        const res = await setupApi.parseCsv(csvFile);
+        if (res.errors && res.errors.length > 0) {
+          setError(`CSV validation errors: ${res.errors.map(e => e.error).join(', ')}`);
+        }
+        if (res.detected_currency) {
+          setCurrency(res.detected_currency);
+        }
+        const mapped = (res.rows || []).map(r => ({
+          name: r.name,
+          price: r.price,
+          billing_cycle: r.billing_cycle,
+          user_count: r.user_count || 10,
+          churn_rate: r.churn_rate ? r.churn_rate * 100 : 3.0,
+          features: r.features || [],
+          verified_price: true,
+        }));
+        setDraftTiers(mapped);
+        setCompanyName(companyName || 'Imported Company');
+        setStep(2);
+      } else if (sourceType === 'stripe') {
+        const res = await setupApi.importFromStripe(stripeKey);
+        setCurrency(res.detected_currency || 'USD');
+        setDraftTiers(res.tiers || []);
+        setCompanyName(companyName || 'Stripe Connected Company');
+        setStep(2);
+      } else if (sourceType === 'manual') {
+        if (!companyName.trim()) {
+          setError('Please provide a company name.');
+          setLoading(false);
+          return;
+        }
+        setDraftTiers([
+          { name: 'Starter', price: 29, billing_cycle: 'monthly', user_count: 100, churn_rate: 5.0, features: ['User management', 'Basic analytics', 'Email support'], verified_price: true },
+          { name: 'Growth', price: 79, billing_cycle: 'monthly', user_count: 50, churn_rate: 3.0, features: ['Everything in Starter', 'API access', 'Priority support'], verified_price: true },
+          { name: 'Enterprise', price: 199, billing_cycle: 'annual', user_count: 20, churn_rate: 1.0, features: ['Everything in Growth', 'SSO login', 'Audit logs'], verified_price: true },
+        ]);
+        setStep(2);
       }
-      const industryDescription = info.industry_description?.trim();
-      const payload = {
-        name: info.name,
-        industry: info.industry,
-        description:
-          info.industry === "other" && industryDescription
-            ? [
-                info.description?.trim(),
-                `Industry description: ${industryDescription}`,
-              ]
-                .filter(Boolean)
-                .join("\n\n")
-            : info.description,
-      };
-      const c = id ? await updateCompany(id, payload) : await createCompany(payload);
-      setId(c.id);
-      setTiers((current) =>
-        current.length
-          ? current
-          : [{ _key: crypto.randomUUID() }],
-      );
-      setStep(2);
-    } catch (e) {
-      setError(e.detail);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Extraction failed. Please verify your inputs or use manual setup.');
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
-  const finish = async () => {
-    setBusy(true);
-    try {
-      const s = await startAnalysis(id);
-      n(`/company/${id}/analyzing/${s.session_id}`);
-    } catch (e) {
-      setError(e.detail);
-      setBusy(false);
-    }
+
+  // Update draft tier inline
+  const handleTierChange = (index, field, value) => {
+    setDraftTiers(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
   };
-  const openReview = async () => {
-    setBusy(true);
+
+  // Step 2 Submit: Save company, tiers, and features to database
+  const handleSaveCompany = async () => {
+    setLoading(true);
+    setError('');
+
     try {
-      const company = await getCompany(id);
-      const parsed = parseIndustryDescription(company.description || "");
-      setInfo({
-        name: company.name,
-        industry: company.industry,
-        industry_description: parsed.industry_description,
-        description: parsed.description,
+      // 1. Create company
+      const company = await companiesApi.create({
+        name: companyName.trim() || 'New SaaS Company',
+        industry,
+        currency,
+        description: description.trim() || undefined,
       });
-      setTiers(company.tiers || []);
-      setCompetitors(company.competitors || []);
-      setStep(4);
-    } catch (e) {
-      setError(e.detail);
+
+      setCreatedCompanyId(company.id);
+
+      // 2. Add tiers and features
+      for (const t of draftTiers) {
+        const priceNum = t.price !== null && t.price !== undefined ? parseFloat(t.price) : 0;
+        const userCountNum = t.user_count ? parseInt(t.user_count, 10) : 0;
+        const churnNum = t.churn_rate !== null && t.churn_rate !== undefined ? parseFloat(t.churn_rate) / 100 : null;
+
+        const newTier = await tiersApi.addTier(company.id, {
+          name: t.name || 'Tier',
+          price: priceNum,
+          billing_cycle: t.billing_cycle || 'monthly',
+          user_count: userCountNum,
+          churn_rate: churnNum,
+        });
+
+        // Add features if present
+        if (t.features && t.features.length > 0) {
+          await companiesApi.bulkAddFeatures(company.id, newTier.id, t.features);
+        }
+      }
+
+      setStep(3);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to save company and tiers.');
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   };
-  if (loading)
-    return (
-      <main className="page-container">
-        <Spinner message="Loading company…" />
-      </main>
-    );
+
+  // Step 3 Submit: Add competitors and finish
+  const handleFinishCompetitors = async () => {
+    if (createdCompanyId) {
+      for (const u of competitorUrls) {
+        if (u && u.trim().startsWith('http')) {
+          try {
+            await competitorsApi.add(createdCompanyId, u.trim());
+          } catch {
+            // ignore individual competitor scrape error here
+          }
+        }
+      }
+      navigate(`/companies/${createdCompanyId}/tiers`);
+    } else {
+      navigate('/companies');
+    }
+  };
+
   return (
-    <main className="page-container stack-lg">
-      <div>
-        <Button variant="ghost" size="sm" onClick={() => n("/dashboard")}>
-          ← Back to Dashboard
-        </Button>
-        <h1>Company Setup</h1>
-        <p>Give PricePilot the signal it needs for a useful analysis.</p>
+    <div>
+      {/* Breadcrumb & Header */}
+      <div className="breadcrumb-nav">
+        <Link to="/companies">Companies</Link>
+        <span className="breadcrumb-sep">/</span>
+        <span>New</span>
       </div>
-      <div className="steps">
-        {[1, 2, 3, 4].map((x) => (
-          <div
-            className={`step ${x === step ? "active" : x < step ? "done" : ""}`}
-            key={x}
-          >
-            <span className="step-circle">{x < step ? "✓" : x}</span>
-          </div>
-        ))}
+
+      <div className="page-header" style={{ marginBottom: '16px' }}>
+        <div className="page-title-group">
+          <h1>
+            {step === 1 && 'Set up a company'}
+            {step === 2 && 'Review imported tiers'}
+            {step === 3 && 'Add competitors (Optional)'}
+          </h1>
+          <p className="page-subtitle">
+            {step === 1 && 'Bring in your pricing the quickest way. You review everything before it is saved.'}
+            {step === 2 && 'Edit anything that looks off. Unverified prices are marked so you can confirm them.'}
+            {step === 3 && 'Track competitor pricing pages to benchmark your positioning.'}
+          </p>
+        </div>
+
+        <div className="page-actions">
+          {step === 1 && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setupApi.downloadCsvTemplate()}
+            >
+              Download CSV template
+            </button>
+          )}
+          {step === 2 && (
+            <>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep(1)}
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={loading}
+                onClick={handleSaveCompany}
+              >
+                {loading ? 'Saving company...' : 'Save and continue'}
+              </button>
+            </>
+          )}
+          {step === 3 && (
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleFinishCompetitors}
+            >
+              Finish setup
+            </button>
+          )}
+        </div>
       </div>
-      <ErrorBanner message={error} onDismiss={() => setError("")} />
+
+      {/* Stepper Progress (03-setup-import.png) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px', fontSize: '13px' }}>
+        <span style={{ fontWeight: step === 1 ? 700 : 500, color: step === 1 ? 'var(--primary)' : 'var(--text-secondary)' }}>
+          <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: step === 1 ? 'var(--primary)' : 'var(--bg-inset)', color: step === 1 ? '#fff' : 'var(--text-secondary)', textAlign: 'center', lineHeight: '20px', marginRight: '6px', fontSize: '11px', fontWeight: 700 }}>1</span>
+          Source
+        </span>
+        <span style={{ color: 'var(--border-strong)' }}>—</span>
+        <span style={{ fontWeight: step === 2 ? 700 : 500, color: step === 2 ? 'var(--primary)' : 'var(--text-secondary)' }}>
+          <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: step === 2 ? 'var(--primary)' : 'var(--bg-inset)', color: step === 2 ? '#fff' : 'var(--text-secondary)', textAlign: 'center', lineHeight: '20px', marginRight: '6px', fontSize: '11px', fontWeight: 700 }}>2</span>
+          Review tiers
+        </span>
+        <span style={{ color: 'var(--border-strong)' }}>—</span>
+        <span style={{ fontWeight: step === 3 ? 700 : 500, color: step === 3 ? 'var(--primary)' : 'var(--text-secondary)' }}>
+          <span style={{ display: 'inline-block', width: '20px', height: '20px', borderRadius: '50%', backgroundColor: step === 3 ? 'var(--primary)' : 'var(--bg-inset)', color: step === 3 ? '#fff' : 'var(--text-secondary)', textAlign: 'center', lineHeight: '20px', marginRight: '6px', fontSize: '11px', fontWeight: 700 }}>3</span>
+          Competitors
+        </span>
+      </div>
+
+      {error && (
+        <div className="callout callout-warning">
+          {error}
+        </div>
+      )}
+
+      {/* STEP 1: SOURCE SELECTION (03-setup-import.png) */}
       {step === 1 && (
-        <Card className="stack">
-          <h2>Basic Information</h2>
-          <Input
-            label="Company Name"
-            name="name"
-            value={info.name}
-            onChange={(e) => setInfo({ ...info, name: e.target.value })}
-            required
-          />
-          <div className="form-field">
-            <label>Industry</label>
-            <select
-              value={info.industry}
-              onChange={(e) =>
-                setInfo({
-                  ...info,
-                  industry: e.target.value,
-                  industry_description:
-                    e.target.value === "other" ? info.industry_description : "",
-                })
-              }
-            >
-              {industries.map((x) => (
-                <option key={x} value={x}>
-                  {x.replaceAll("_", " ")}
-                </option>
-              ))}
-            </select>
-          </div>
-          {info.industry === "other" && (
-            <Input
-              label="Describe your industry"
-              name="industry_description"
-              value={info.industry_description}
-              onChange={(e) =>
-                setInfo({ ...info, industry_description: e.target.value })
-              }
-              placeholder="e.g. Legal tech, EdTech, HealthTech..."
-              required
-            />
-          )}
-          <div className="form-field">
-            <label>Description</label>
-            <textarea
-              value={info.description}
-              onChange={(e) =>
-                setInfo({ ...info, description: e.target.value })
-              }
-            />
-          </div>
-          <div className="row-between">
-            <span />
-            <Button loading={busy} onClick={saveInfo}>
-              Next →
-            </Button>
-          </div>
-        </Card>
-      )}
-      {step === 2 && (
-        <div className="stack">
-          <div className="row-between">
-            <h2>Tiers & Features</h2>
-          </div>
-          {tiers.map((t, i) => (
-            <TierFormCard
-              key={t.id || t._key}
-              companyId={id}
-              tier={t}
-              industry={info.industry}
-              onSaved={(d) =>
-                setTiers((v) => v.map((x, j) => (j === i ? d : x)))
-              }
-              onDeleted={(tierKey) =>
-                setTiers((v) =>
-                  v.filter((x) => (x.id || x._key) !== tierKey),
-                )
-              }
-            />
-          ))}
-          <div className="tier-add-row">
-            <Button
-              variant="secondary"
-              onClick={() =>
-                setTiers((v) => [...v, { _key: crypto.randomUUID() }])
-              }
-            >
-              + Add Another Tier
-            </Button>
-          </div>
-          <div className="row-between">
-            <Button variant="secondary" onClick={() => setStep(1)}>
-              ← Back
-            </Button>
-            <Button
-              disabled={!tiers.some((x) => x.id)}
-              onClick={async () => {
-                try {
-                  setCompetitors(await listCompetitors(id));
-                } catch (e) {
-                  setError(e.detail);
-                }
-                setStep(3);
+        <div className="layout-columns">
+          {/* Left Column: Source Selection List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div
+              className="card"
+              style={{
+                padding: '20px 24px',
+                cursor: 'pointer',
+                borderColor: sourceType === 'url' ? 'var(--primary)' : 'var(--border-card)',
+                backgroundColor: sourceType === 'url' ? 'var(--bg-hover)' : 'var(--bg-card)',
+                boxShadow: sourceType === 'url' ? '0 0 0 1px var(--primary)' : 'var(--shadow-sm)',
               }}
+              onClick={() => setSourceType('url')}
             >
-              Next →
-            </Button>
-          </div>
-        </div>
-      )}
-      {step === 3 && (
-        <div className="stack">
-          <div>
-            <h2>Competitors</h2>
-            <p>Add up to 5 competitor pricing pages (optional)</p>
-          </div>
-          {competitors.map((c) => (
-            <CompetitorInput
-              key={c.id}
-              companyId={id}
-              item={c}
-              onAdded={(u) =>
-                setCompetitors((v) => v.map((x) => (x.id === u.id ? u : x)))
-              }
-              onDeleted={(cid) =>
-                setCompetitors((v) => v.filter((x) => x.id !== cid))
-              }
-            />
-          ))}
-          {competitors.length < 5 && (
-            <CompetitorInput
-              companyId={id}
-              onAdded={(c) => setCompetitors((v) => [...v, c])}
-            />
-          )}
-          <p>{competitors.length}/5 competitors added</p>
-          <div className="row-between">
-            <Button variant="secondary" onClick={() => setStep(2)}>
-              ← Back
-            </Button>
-            <Button loading={busy} onClick={openReview}>
-              Review Setup →
-            </Button>
-          </div>
-        </div>
-      )}
-      {step === 4 && (
-        <div className="stack-lg">
-          <div className="row-between">
-            <div>
-              <h2>Review Your Setup</h2>
-              <p>Confirm everything below before running the analysis.</p>
-            </div>
-            <Badge variant="info">Final step</Badge>
-          </div>
-          <Card className="stack">
-            <div className="row-between">
-              <h3>Company Information</h3>
-              <Button size="sm" variant="ghost" onClick={() => setStep(1)}>
-                ✎ Edit
-              </Button>
-            </div>
-            <div className="review-grid">
-              <div>
-                <span>Name</span>
-                <strong>{info.name}</strong>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '15px', color: 'var(--text-main)' }}>Import from your pricing page</h3>
+                <span className="badge badge-neutral">URL</span>
               </div>
-              <div>
-                <span>Industry</span>
-                <strong>{info.industry.replaceAll("_", " ")}</strong>
-              </div>
-              {info.industry === "other" && info.industry_description && (
-                <div className="review-wide">
-                  <span>Industry Details</span>
-                  <strong>{info.industry_description}</strong>
-                </div>
-              )}
-              <div className="review-wide">
-                <span>Description</span>
-                <strong>{info.description || "No description provided"}</strong>
-              </div>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                Paste your public pricing URL. Tiers, prices and features are read and price-checked against the page text.
+              </p>
             </div>
-          </Card>
-          <Card className="stack">
-            <div className="row-between">
-              <h3>Tiers & Features</h3>
-              <Button size="sm" variant="ghost" onClick={() => setStep(2)}>
-                ✎ Edit
-              </Button>
+
+            <div
+              className="card"
+              style={{
+                padding: '20px 24px',
+                cursor: 'pointer',
+                borderColor: sourceType === 'text' ? 'var(--primary)' : 'var(--border-card)',
+                backgroundColor: sourceType === 'text' ? 'var(--bg-hover)' : 'var(--bg-card)',
+                boxShadow: sourceType === 'text' ? '0 0 0 1px var(--primary)' : 'var(--shadow-sm)',
+              }}
+              onClick={() => setSourceType('text')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '15px', color: 'var(--text-main)' }}>Paste pricing text</h3>
+                <span className="badge badge-neutral">Text</span>
+              </div>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                Copy the text from any pricing document or page.
+              </p>
             </div>
-            <div className="review-tier-list">
-              {tiers
-                .filter((tier) => tier.id)
-                .map((tier) => (
-                  <div className="review-tier" key={tier.id}>
-                    <div className="row-between">
-                      <strong>{tier.name}</strong>
-                      <span>
-                        ${Number(tier.price).toLocaleString()} /{" "}
-                        {tier.billing_cycle}
-                      </span>
+
+            <div
+              className="card"
+              style={{
+                padding: '20px 24px',
+                cursor: 'pointer',
+                borderColor: sourceType === 'csv' ? 'var(--primary)' : 'var(--border-card)',
+                backgroundColor: sourceType === 'csv' ? 'var(--bg-hover)' : 'var(--bg-card)',
+                boxShadow: sourceType === 'csv' ? '0 0 0 1px var(--primary)' : 'var(--shadow-sm)',
+              }}
+              onClick={() => setSourceType('csv')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '15px', color: 'var(--text-main)' }}>Upload a CSV</h3>
+                <span className="badge badge-neutral">CSV</span>
+              </div>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                Use the template with tier, price, billing cycle, users, churn and features.
+              </p>
+            </div>
+
+            <div
+              className="card"
+              style={{
+                padding: '20px 24px',
+                cursor: 'pointer',
+                borderColor: sourceType === 'stripe' ? 'var(--primary)' : 'var(--border-card)',
+                backgroundColor: sourceType === 'stripe' ? 'var(--bg-hover)' : 'var(--bg-card)',
+                boxShadow: sourceType === 'stripe' ? '0 0 0 1px var(--primary)' : 'var(--shadow-sm)',
+              }}
+              onClick={() => setSourceType('stripe')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '15px', color: 'var(--text-main)' }}>Connect Stripe</h3>
+                <span className="badge badge-neutral">Stripe</span>
+              </div>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                Read active subscription products with a restricted API key.
+              </p>
+            </div>
+
+            <div
+              className="card"
+              style={{
+                padding: '20px 24px',
+                cursor: 'pointer',
+                borderColor: sourceType === 'manual' ? 'var(--primary)' : 'var(--border-card)',
+                backgroundColor: sourceType === 'manual' ? 'var(--bg-hover)' : 'var(--bg-card)',
+                boxShadow: sourceType === 'manual' ? '0 0 0 1px var(--primary)' : 'var(--shadow-sm)',
+              }}
+              onClick={() => setSourceType('manual')}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <h3 style={{ fontSize: '15px', color: 'var(--text-main)' }}>Enter manually</h3>
+                <span className="badge badge-neutral">Manual</span>
+              </div>
+              <p style={{ fontSize: '13px', margin: 0 }}>
+                Start from a blank company and add tiers yourself.
+              </p>
+            </div>
+          </div>
+
+          {/* Right Column: Source Action Form (03-setup-import.png) */}
+          <div className="card card-padded">
+            <form onSubmit={handleExtractSource}>
+              {sourceType === 'url' && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="pricing-url">
+                      Pricing page URL
+                    </label>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Only public pages are fetched.
                     </div>
-                    <p>
-                      {tier.user_count} users · Churn{" "}
-                      {tier.churn_rate ?? "Not set"}
-                    </p>
-                    <div className="review-features">
-                      {(tier.features || []).length ? (
-                        tier.features.map((feature) => (
-                          <span key={feature.id || feature.feature_name}>
-                            {feature.feature_name}
-                          </span>
-                        ))
-                      ) : (
-                        <em>No features added</em>
-                      )}
-                    </div>
+                    <input
+                      id="pricing-url"
+                      type="url"
+                      required
+                      className="form-input"
+                      placeholder="https://cloudhr.io/pricing"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                    />
                   </div>
-                ))}
-            </div>
-          </Card>
-          <Card className="stack">
-            <div className="row-between">
-              <h3>Competitors</h3>
-              <Button size="sm" variant="ghost" onClick={() => setStep(3)}>
-                ✎ Edit
-              </Button>
-            </div>
-            {competitors.length ? (
-              <div className="review-competitors">
-                {competitors.map((competitor) => {
-                  const statusBadge = getScrapeStatusBadge(
-                    competitor.scrape_status,
-                  );
-                  return (
-                    <div key={competitor.id}>
-                      <span>{competitor.url}</span>
-                      <Badge variant={statusBadge.variant}>
-                        {statusBadge.label}
-                      </Badge>
+
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="company-industry">
+                      Industry
+                    </label>
+                    <select
+                      id="company-industry"
+                      className="form-select"
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                    >
+                      <option value="saas_b2b">SaaS B2B</option>
+                      <option value="saas_b2c">SaaS B2C</option>
+                      <option value="hr_software">HR Software</option>
+                      <option value="project_management">Project Management</option>
+                      <option value="analytics">Analytics</option>
+                      <option value="crm">CRM</option>
+                      <option value="payments">Payments</option>
+                      <option value="ecommerce_tools">Ecommerce Tools</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label className="form-label" htmlFor="company-currency">
+                      Currency
+                    </label>
+                    <select
+                      id="company-currency"
+                      className="form-select"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      {SUPPORTED_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                    style={{ width: '100%', padding: '11px', marginBottom: '16px' }}
+                  >
+                    {loading ? 'Reading pricing page...' : 'Read pricing page'}
+                  </button>
+                </>
+              )}
+
+              {sourceType === 'text' && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="pricing-text">
+                      Pasted pricing text
+                    </label>
+                    <textarea
+                      id="pricing-text"
+                      required
+                      className="form-textarea"
+                      style={{ minHeight: '130px' }}
+                      placeholder="Paste plan names, prices, features and tiers from your site or document..."
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Industry</label>
+                    <select
+                      className="form-select"
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                    >
+                      <option value="saas_b2b">SaaS B2B</option>
+                      <option value="saas_b2c">SaaS B2C</option>
+                      <option value="hr_software">HR Software</option>
+                      <option value="project_management">Project Management</option>
+                      <option value="analytics">Analytics</option>
+                      <option value="crm">CRM</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label className="form-label">Currency</label>
+                    <select
+                      className="form-select"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      {SUPPORTED_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                    style={{ width: '100%', padding: '11px', marginBottom: '16px' }}
+                  >
+                    {loading ? 'Extracting pricing...' : 'Extract tiers'}
+                  </button>
+                </>
+              )}
+
+              {sourceType === 'csv' && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Choose CSV file</label>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      required
+                      className="form-input"
+                      onChange={(e) => setCsvFile(e.target.files[0])}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label className="form-label">Fallback Currency</label>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Auto-detected if values include ₹, €, £, $, or select here:
                     </div>
-                  );
-                })}
+                    <select
+                      className="form-select"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      {SUPPORTED_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                    style={{ width: '100%', padding: '11px', marginBottom: '16px' }}
+                  >
+                    {loading ? 'Parsing CSV...' : 'Parse & review tiers'}
+                  </button>
+                </>
+              )}
+
+              {sourceType === 'stripe' && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Stripe Restricted API Key</label>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                      Key with read-only permissions for Subscriptions & Prices. Never stored.
+                    </div>
+                    <input
+                      type="password"
+                      required
+                      className="form-input"
+                      placeholder="rk_live_..."
+                      value={stripeKey}
+                      onChange={(e) => setStripeKey(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={loading}
+                    style={{ width: '100%', padding: '11px', marginBottom: '16px' }}
+                  >
+                    {loading ? 'Connecting Stripe...' : 'Read Stripe plans'}
+                  </button>
+                </>
+              )}
+
+              {sourceType === 'manual' && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Company Name</label>
+                    <input
+                      type="text"
+                      required
+                      className="form-input"
+                      placeholder="e.g. Acme Cloud"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Industry</label>
+                    <select
+                      className="form-select"
+                      value={industry}
+                      onChange={(e) => setIndustry(e.target.value)}
+                    >
+                      <option value="saas_b2b">SaaS B2B</option>
+                      <option value="saas_b2c">SaaS B2C</option>
+                      <option value="hr_software">HR Software</option>
+                      <option value="project_management">Project Management</option>
+                      <option value="analytics">Analytics</option>
+                      <option value="crm">CRM</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: '24px' }}>
+                    <label className="form-label">Currency</label>
+                    <select
+                      className="form-select"
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      {SUPPORTED_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '11px', marginBottom: '16px' }}
+                  >
+                    Continue to tiers
+                  </button>
+                </>
+              )}
+
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                Industry sets the price-sensitivity model used in the revenue analysis.
               </div>
-            ) : (
-              <p>No competitors added. This is optional.</p>
-            )}
-          </Card>
-          <div className="row-between">
-            <Button variant="secondary" onClick={() => setStep(3)}>
-              ← Back
-            </Button>
-            <Button loading={busy} onClick={finish}>
-              Confirm & Run Analysis →
-            </Button>
+            </form>
           </div>
         </div>
       )}
-    </main>
+
+      {/* STEP 2: REVIEW IMPORTED TIERS (04-setup-review.png) */}
+      {step === 2 && (
+        <div>
+          {warningMessage && (
+            <div className="callout callout-warning">
+              <span style={{ fontWeight: 600 }}>{warningMessage}</span>
+            </div>
+          )}
+
+          <div className="layout-columns">
+            {/* Left Column: Detected Tiers Table */}
+            <div className="card">
+              <div className="card-header">
+                <h3 className="card-title">Detected tiers</h3>
+              </div>
+
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>TIER</th>
+                      <th>PRICE ({getCurrencySymbol(currency)})</th>
+                      <th>BILLING</th>
+                      <th>USERS</th>
+                      <th>CHURN</th>
+                      <th style={{ width: '35%' }}>FEATURES</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draftTiers.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                          No tiers detected. Click Back to check your source.
+                        </td>
+                      </tr>
+                    ) : (
+                      draftTiers.map((t, idx) => (
+                        <tr key={idx}>
+                          <td>
+                            <input
+                              type="text"
+                              className="form-input"
+                              style={{ fontWeight: 600, padding: '6px 8px', fontSize: '13.5px' }}
+                              value={t.name}
+                              onChange={(e) => handleTierChange(idx, 'name', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                                {getCurrencySymbol(currency)}
+                              </span>
+                              <input
+                                type="number"
+                                step="any"
+                                className="form-input mono"
+                                style={{ width: '80px', padding: '6px 8px', fontSize: '13.5px' }}
+                                value={t.price ?? ''}
+                                onChange={(e) => handleTierChange(idx, 'price', e.target.value)}
+                              />
+                              {!t.verified_price && (
+                                <span className="badge badge-warning" title="Price unverified on page">
+                                  Confirm
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            <select
+                              className="form-select"
+                              style={{ padding: '6px 8px', fontSize: '13px' }}
+                              value={t.billing_cycle || 'monthly'}
+                              onChange={(e) => handleTierChange(idx, 'billing_cycle', e.target.value)}
+                            >
+                              <option value="monthly">Monthly</option>
+                              <option value="annual">Annual</option>
+                            </select>
+                          </td>
+                          <td>
+                            <input
+                              type="number"
+                              className="form-input mono"
+                              style={{ width: '75px', padding: '6px 8px', fontSize: '13.5px' }}
+                              placeholder="100"
+                              value={t.user_count ?? ''}
+                              onChange={(e) => handleTierChange(idx, 'user_count', e.target.value)}
+                            />
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <input
+                                type="number"
+                                step="0.1"
+                                className="form-input mono"
+                                style={{ width: '60px', padding: '6px 8px', fontSize: '13.5px' }}
+                                placeholder="5.0"
+                                value={t.churn_rate ?? ''}
+                                onChange={(e) => handleTierChange(idx, 'churn_rate', e.target.value)}
+                              />
+                              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>%</span>
+                            </div>
+                          </td>
+                          <td style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                            {t.features && t.features.length > 0 ? (
+                              t.features.join(', ')
+                            ) : (
+                              <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>No features extracted</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Right Column: Company Info and Missing Data Cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="card card-padded">
+                <h3 className="card-title" style={{ marginBottom: '16px' }}>Company</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '13.5px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Name</span>
+                    <span style={{ fontWeight: 600 }}>{companyName || 'CloudHR Pro'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Industry</span>
+                    <span style={{ fontWeight: 600 }}>{industry.toUpperCase().replace('_', ' ')}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Currency</span>
+                    <select
+                      className="form-select"
+                      style={{ width: 'auto', padding: '3px 8px', fontSize: '12px', fontWeight: 600 }}
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                    >
+                      {SUPPORTED_CURRENCIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="card card-padded">
+                <h3 className="card-title" style={{ marginBottom: '8px', fontSize: '14.5px' }}>Missing data</h3>
+                <p style={{ fontSize: '13px', margin: 0 }}>
+                  User counts and churn are needed for revenue scenarios. Fill them in the table for accurate analysis results.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: COMPETITORS */}
+      {step === 3 && (
+        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+          <div className="card card-padded">
+            <h3 className="card-title" style={{ marginBottom: '12px' }}>
+              Add competitor pricing pages
+            </h3>
+            <p style={{ fontSize: '13px', marginBottom: '20px' }}>
+              PriceLens will fetch their public pricing to benchmark your value score. You can also skip this and add them later.
+            </p>
+
+            {competitorUrls.map((urlVal, i) => (
+              <div key={i} className="form-group" style={{ marginBottom: '12px' }}>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://competitor.com/pricing"
+                  value={urlVal}
+                  onChange={(e) => {
+                    const copy = [...competitorUrls];
+                    copy[i] = e.target.value;
+                    setCompetitorUrls(copy);
+                  }}
+                />
+              </div>
+            ))}
+
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ marginBottom: '24px' }}
+              onClick={() => setCompetitorUrls([...competitorUrls, ''])}
+            >
+              + Add another competitor URL
+            </button>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => navigate(`/companies/${createdCompanyId}/tiers`)}
+              >
+                Skip for now
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleFinishCompetitors}
+              >
+                Save & Go to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-}
+};

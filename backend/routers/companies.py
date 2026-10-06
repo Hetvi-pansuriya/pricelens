@@ -28,9 +28,10 @@ import uuid
 
 from datetime import datetime
 
-from typing import List
+from typing import List, Optional
+import json
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,9 +49,13 @@ from schemas import (
     CompanyCreate, CompanyResponse, CompanyDetailResponse,  # company-level schemas
     TierCreate, TierResponse,                                # tier-level schemas
     FeatureCreate, FeatureResponse,                          # feature-level schemas
+    BulkFeaturesRequest, BulkFeaturesResponse,
+    FeatureSuggestionsResponse,
 )
 
 from routers.auth import get_current_user
+from industry_features import get_industry_features
+from engine.groq_utils import call_groq_with_retry
 
 router = APIRouter()
 
@@ -117,6 +122,7 @@ async def create_company(
         user_id=current_user.id,  # link to the authenticated user
         name=body.name,           # company name from request body (1–100 chars)
         industry=body.industry,   # industry type (e.g., "saas_b2b")
+        currency=body.currency or "USD", # currency (default USD)
         description=body.description,  # optional description
         created_at=datetime.utcnow(),   # record creation timestamp
     )
@@ -182,6 +188,8 @@ async def update_company(
 
     company.name = body.name
     company.industry = body.industry
+    if body.currency:
+        company.currency = body.currency
     company.description = body.description
 
     await db.commit()         # executes UPDATE
@@ -330,3 +338,178 @@ async def delete_feature(
 
     await db.delete(feature)  # delete the feature row
     await db.commit()         # execute DELETE
+
+
+@router.post("/{company_id}/duplicate", response_model=CompanyDetailResponse, status_code=status.HTTP_201_CREATED)
+async def duplicate_company(
+    company_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Duplicate a company: copies tiers, features, and competitor URLs.
+    Does NOT copy scraped competitor text or previous reports.
+    New name = '<old name> (copy)'
+    """
+    old_company = await get_company_or_404(company_id, current_user, db)
+
+    new_company = Company(
+        id=uuid.uuid4(),
+        user_id=current_user.id,
+        name=f"{old_company.name} (copy)",
+        industry=old_company.industry,
+        currency=getattr(old_company, "currency", "USD"),
+        description=old_company.description,
+        created_at=datetime.utcnow(),
+    )
+    db.add(new_company)
+
+    # Copy tiers and features
+    for old_tier in old_company.tiers:
+        new_tier = PricingTier(
+            id=uuid.uuid4(),
+            company_id=new_company.id,
+            name=old_tier.name,
+            price=old_tier.price,
+            billing_cycle=old_tier.billing_cycle,
+            user_count=old_tier.user_count,
+            churn_rate=old_tier.churn_rate,
+            created_at=datetime.utcnow(),
+        )
+        db.add(new_tier)
+        for old_feat in old_tier.features:
+            new_feat = Feature(
+                id=uuid.uuid4(),
+                tier_id=new_tier.id,
+                feature_name=old_feat.feature_name,
+                description=old_feat.description,
+            )
+            db.add(new_feat)
+
+    # Copy competitor URLs (pending state, not text)
+    for old_comp in old_company.competitors:
+        new_comp = Competitor(
+            id=uuid.uuid4(),
+            company_id=new_company.id,
+            name=old_comp.name,
+            url=old_comp.url,
+            raw_scraped_text=None,
+            clean_scraped_text=None,
+            scrape_status="pending",
+            last_scraped_at=None,
+            created_at=datetime.utcnow(),
+        )
+        db.add(new_comp)
+
+    await db.commit()
+
+    return await get_company_or_404(new_company.id, current_user, db)
+
+
+@router.post(
+    "/{company_id}/tiers/{tier_id}/features/bulk",
+    response_model=BulkFeaturesResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def add_features_bulk(
+    company_id: uuid.UUID,
+    tier_id: uuid.UUID,
+    body: BulkFeaturesRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Bulk adds features to a tier. Strips whitespace, ignores duplicates within the tier,
+    and returns lists of added and skipped features.
+    """
+    await verify_company_ownership(company_id, current_user, db)
+    tier = await get_tier_or_404(tier_id, company_id, db)
+
+    existing_features = {f.feature_name.lower().strip() for f in tier.features}
+
+    added = []
+    skipped = []
+
+    for raw_name in body.features:
+        name = str(raw_name).strip()
+        if not name:
+            continue
+
+        if name.lower() in existing_features:
+            skipped.append(name)
+        else:
+            feat = Feature(
+                id=uuid.uuid4(),
+                tier_id=tier_id,
+                feature_name=name,
+            )
+            db.add(feat)
+            existing_features.add(name.lower())
+            added.append(feat)
+
+    if added:
+        await db.commit()
+        for f in added:
+            await db.refresh(f)
+
+    return BulkFeaturesResponse(added=added, skipped=skipped)
+
+
+@router.post(
+    "/{company_id}/tiers/{tier_id}/features/suggest",
+    response_model=FeatureSuggestionsResponse,
+)
+async def suggest_features(
+    request: Request,
+    company_id: uuid.UUID,
+    tier_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Suggests up to 8 relevant features for a tier based on company industry, description,
+    tier name and price, excluding features already present in the tier.
+    Falls back to industryFeatures.js catalog on AI unavailability.
+    """
+    company = await get_company_or_404(company_id, current_user, db)
+    tier = await get_tier_or_404(tier_id, company_id, db)
+
+    existing_names = {f.feature_name.lower().strip() for f in tier.features}
+    static_pool = [
+        f for f in get_industry_features(company.industry)
+        if f.lower().strip() not in existing_names
+    ]
+
+    groq_client = getattr(request.app.state, "groq_client", None)
+    if not groq_client:
+        return FeatureSuggestionsResponse(suggestions=static_pool[:8])
+
+    prompt = f"""You are a SaaS product manager. Suggest up to 8 compelling features to add to this specific pricing tier.
+Do NOT suggest any features that are already in the tier.
+
+COMPANY: {company.name}
+INDUSTRY: {company.industry}
+DESCRIPTION: {company.description or 'N/A'}
+TIER: {tier.name} (${tier.price}/{tier.billing_cycle})
+EXISTING FEATURES IN THIS TIER: {json.dumps([f.feature_name for f in tier.features])}
+
+Respond ONLY with a JSON object matching this schema:
+{{
+  "suggestions": ["Feature 1", "Feature 2", "Feature 3"]
+}}
+Return ONLY valid JSON. No markdown fences."""
+
+    try:
+        raw_res = await call_groq_with_retry(groq_client, prompt)
+        suggestions = raw_res.get("suggestions", [])
+        filtered = [
+            str(s).strip() for s in suggestions
+            if str(s).strip() and str(s).strip().lower() not in existing_names
+        ][:8]
+        if filtered:
+            return FeatureSuggestionsResponse(suggestions=filtered)
+    except Exception as e:
+        print(f"[Feature Suggestion] AI fallback due to: {e}")
+
+    return FeatureSuggestionsResponse(suggestions=static_pool[:8])
+

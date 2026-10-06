@@ -1,44 +1,218 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import Button from "../components/common/Button";
-import ErrorBanner from "../components/common/ErrorBanner";
-import "./Login.css";
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-export default function Signup() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [show, setShow] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+export const Signup = () => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { signup } = useAuth();
   const navigate = useNavigate();
-  const submit = async (event) => {
-    event.preventDefault();
-    if (password.length < 6) return setError("Password must be at least 6 characters.");
-    if (password !== confirm) return setError("Passwords do not match.");
-    setBusy(true);
-    setError("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      await signup(email, password);
-      navigate("/dashboard");
+      await signup({ email, password });
+      navigate('/companies');
     } catch (err) {
-      setError(err.detail || "Signup failed.");
+      setError(err.response?.data?.detail || 'Failed to create account. Please try again.');
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
   };
-  return <main className="auth-page"><section className="auth-card">
-    <div className="auth-logo"><span className="auth-logo-icon">✈</span><h1>Create your account</h1><p>Start making confident pricing decisions</p></div>
-    <ErrorBanner message={error} onDismiss={() => setError("")} />
-    <form className="auth-form" onSubmit={submit}>
-      <div className="form-field"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-      <div className="form-field"><label>Password</label><div className="password-wrap"><input type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required /><Button type="button" size="sm" variant="ghost" onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</Button></div></div>
-      <div className="form-field"><label>Confirm Password</label><div className="password-wrap"><input type={showConfirm ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} required /><Button type="button" size="sm" variant="ghost" onClick={() => setShowConfirm(!showConfirm)}>{showConfirm ? "Hide" : "Show"}</Button></div></div>
-      <Button type="submit" fullWidth loading={busy}>Create Account</Button>
-    </form>
-    <p className="auth-switch">Already have an account? <Link to="/login">Log in →</Link></p>
-  </section></main>;
-}
+
+  return (
+    <div className="auth-split-wrapper">
+      <div className="auth-split-right">
+        <div className="auth-preview-box">
+          <div
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: 'var(--primary)',
+              marginBottom: '12px',
+            }}
+          >
+            WHAT YOU GET
+          </div>
+          <h2
+            style={{
+              fontSize: '24px',
+              fontWeight: 700,
+              color: 'var(--text-main)',
+              marginBottom: '32px',
+              lineHeight: 1.3,
+            }}
+          >
+            Know what a price change will do before you make it.
+          </h2>
+
+          <div
+            className="card"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '12px',
+              padding: '8px 20px',
+              border: '1px solid var(--border-card)',
+              boxShadow: 'var(--shadow-md)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '14px 0',
+                borderBottom: '1px solid var(--border-light)',
+                fontSize: '13.5px',
+              }}
+            >
+              <span style={{ color: 'var(--text-secondary)' }}>Revenue impact</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>+10%, +20%, +30% scenarios</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '14px 0',
+                borderBottom: '1px solid var(--border-light)',
+                fontSize: '13.5px',
+              }}
+            >
+              <span style={{ color: 'var(--text-secondary)' }}>Feature audit</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Tier placement review</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '14px 0',
+                borderBottom: '1px solid var(--border-light)',
+                fontSize: '13.5px',
+              }}
+            >
+              <span style={{ color: 'var(--text-secondary)' }}>Competitor benchmark</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Live pricing pages</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '14px 0',
+                fontSize: '13.5px',
+              }}
+            >
+              <span style={{ color: 'var(--text-secondary)' }}>Recommendations</span>
+              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>Three ranked strategies</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="auth-split-left">
+        <div className="auth-box">
+          <div className="brand-logo" style={{ marginBottom: '36px', padding: 0 }}>
+            <svg className="brand-icon-svg" viewBox="0 0 24 24">
+              <circle cx="10" cy="10" r="7" />
+              <path d="m21 21-6-6" />
+              <circle cx="10" cy="10" r="2.5" fill="var(--primary)" opacity="0.4" />
+            </svg>
+            <span>PriceLens</span>
+          </div>
+
+          <h1 style={{ fontSize: '28px', marginBottom: '8px' }}>
+            Create your workspace
+          </h1>
+          <p style={{ marginBottom: '28px', color: 'var(--text-secondary)' }}>
+            Start auditing and optimizing your SaaS pricing in seconds.
+          </p>
+
+          {error && (
+            <div className="callout callout-warning" style={{ marginBottom: '20px' }}>
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="email-input">
+                Work Email
+              </label>
+              <input
+                id="email-input"
+                type="email"
+                required
+                className="form-input"
+                placeholder="you@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="password-input">
+                Password
+              </label>
+              <input
+                id="password-input"
+                type="password"
+                required
+                className="form-input"
+                placeholder="At least 8 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: '24px' }}>
+              <label className="form-label" htmlFor="confirm-password-input">
+                Confirm Password
+              </label>
+              <input
+                id="confirm-password-input"
+                type="password"
+                required
+                className="form-input"
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting}
+              style={{ width: '100%', padding: '11px', fontSize: '14px', marginBottom: '20px' }}
+            >
+              {submitting ? 'Creating account...' : 'Create workspace'}
+            </button>
+          </form>
+
+          <div style={{ textAlign: 'center', fontSize: '13.5px', color: 'var(--text-secondary)' }}>
+            Already have an account?{' '}
+            <Link to="/login" style={{ color: 'var(--text-main)', fontWeight: 600 }}>
+              Sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

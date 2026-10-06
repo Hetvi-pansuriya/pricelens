@@ -1,76 +1,79 @@
-﻿:root {
-  /* ── Brand palette: Deep Dark + Steel Blue + Warm Cream ── */
-  --color-primary:        #506385;
-  --color-primary-hover:  #3d5070;
-  --color-primary-dim:    rgba(80, 99, 133, 0.14);
-  --color-primary-glow:   rgba(80, 99, 133, 0.30);
-  --color-primary-light:  rgba(80, 99, 133, 0.08);
+:root {
+  /* Color Palette - Sleek Charcoal, Burnt Orange, Ivory Cream & Warm Stone */
+  --bg-page: #2C2825;
+  /* Deep matte charcoal canvas from wallpaper background */
+  --bg-sidebar: #221F1C;
+  /* Grounding matte charcoal sidebar */
+  --bg-card: #36322E;
+  /* Elevated dark surface */
+  --bg-hover: #403B37;
+  /* Interactive hover state */
+  --bg-subtle: #302C28;
+  /* Subtle dark panel */
+  --bg-inset: #24201D;
+  /* Inset input & well surface */
 
-  /* ── Backgrounds ── */
-  --color-bg:             #101015;
-  --color-surface:        #1a1a22;
-  --color-surface-2:      #20202c;
-  --color-surface-3:      #272736;
+  /* Borders */
+  --border-light: #3F3B36;
+  --border-card: #4A4742;
+  /* Slate border from pill 4 */
+  --border-strong: #5E5852;
+  --border-focus: #EE692E;
+  /* Orange focus ring from pill 1 */
 
-  /* ── Borders ── */
-  --color-border:         rgba(80, 99, 133, 0.20);
-  --color-border-hover:   rgba(80, 99, 133, 0.42);
+  /* Text & Foreground */
+  --text-main: #FFFCF5;
+  /* Ivory cream from pill 2 */
+  --text-body: #E8E4DA;
+  /* Clean off-white body text */
+  --text-secondary: #D1CDC1;
+  /* Stone greige from pill 3 */
+  --text-muted: #9B968B;
+  --text-inverse: #2C2825;
+  /* High contrast on orange buttons */
 
-  /* ── Text ── */
-  --color-text:           #F1F0E1;
-  --color-text-muted:     rgba(241, 240, 225, 0.60);
-  --color-text-subtle:    rgba(241, 240, 225, 0.32);
+  /* Primary Brand (Vibrant Sunset Terracotta Orange from Pill 1) */
+  --primary: #EE692E;
+  --primary-hover: #F27A45;
+  --primary-active: #D95A22;
+  --primary-light: rgba(238, 105, 46, 0.16);
+  --primary-border: rgba(238, 105, 46, 0.38);
+  --primary-text: #FFA87D;
 
-  /* ── Semantic ── */
-  --color-success:        #6b9e78;
-  --color-success-dim:    rgba(107, 158, 120, 0.14);
-  --color-danger:         #c0666e;
-  --color-danger-dim:     rgba(192, 102, 110, 0.14);
-  --color-warning:        #c4944a;
-  --color-warning-dim:    rgba(196, 148, 74, 0.14);
-  --color-info:           #506385;
-  --color-info-dim:       rgba(80, 99, 133, 0.14);
+  /* Badges & Status */
+  --success-bg: rgba(52, 199, 123, 0.14);
+  --success-text: #6EE7B7;
+  --success-border: rgba(52, 199, 123, 0.28);
 
-  /* ── Spacing ── */
-  --space-1: 4px;  --space-2: 8px;  --space-3: 12px;
-  --space-4: 16px; --space-5: 24px; --space-6: 32px;
-  --space-7: 48px; --space-8: 64px;
+  --warning-bg: rgba(245, 158, 11, 0.14);
+  --warning-text: #FCD34D;
+  --warning-border: rgba(245, 158, 11, 0.28);
 
-  /* ── Radius ── */
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   16px;
-  --radius-xl:   24px;
+  --danger-bg: rgba(239, 68, 68, 0.14);
+  --danger-text: #FCA5A5;
+  --danger-border: rgba(239, 68, 68, 0.28);
+
+  --info-bg: rgba(96, 165, 250, 0.14);
+  --info-text: #93C5FD;
+  --info-border: rgba(96, 165, 250, 0.28);
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-full: 9999px;
 
-  /* ── Typography ── */
-  --font-sans: 'Inter', -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
-  --font-size-xs: 11px; --font-xs: 11px;
-  --font-size-sm: 13px; --font-sm: 13px;
-  --font-size-md: 14px; --font-md: 14px;
-  --font-size-lg: 16px; --font-lg: 16px;
-  --font-size-xl: 20px; --font-xl: 20px;
-  --font-size-2xl: 24px; --font-2xl: 24px;
-  --font-size-3xl: 30px; --font-3xl: 30px;
+  /* Shadows for dark elevation */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.38), 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.25);
 
-  /* ── Layout ── */
-  --sidebar-width:   220px;
-  --topbar-height:   52px;
-  --content-width:   1080px;
-  --auth-width:      440px;
-  --orb-size:        96px;
-  --border-thin:     1px;
-  --border-accent:   4px;
-
-  /* ── Shadows ── */
-  --shadow-sm:    0 1px 4px rgba(0, 0, 0, 0.50);
-  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.55);
-  --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.60);
-  --shadow-glow:  0 0 24px rgba(80, 99, 133, 0.22);
-  --shadow-card:  0 1px 4px rgba(0, 0, 0, 0.50);
-  --shadow-hover: 0 6px 24px rgba(80, 99, 133, 0.28);
-
-  /* ── Transition ── */
-  --transition: all .18s ease;
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
