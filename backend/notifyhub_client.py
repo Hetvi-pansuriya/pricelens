@@ -192,6 +192,16 @@ async def send_report_email(
     Sends the analysis report email through NotifyHub HTTP API with PDF attached.
     Falls back to send_analysis_complete_email on 4xx (except 429), 5xx, or network failure.
     """
+    if "PYTEST_CURRENT_TEST" not in os.environ:
+        try:
+            from pathlib import Path
+            from dotenv import load_dotenv
+            env_file = Path(__file__).resolve().parent / ".env"
+            if env_file.exists():
+                load_dotenv(dotenv_path=env_file, override=True)
+        except Exception:
+            pass
+
     report = full_report or {}
     report_via_notifyhub = os.getenv("REPORT_VIA_NOTIFYHUB", "").lower() in (
         "true",
