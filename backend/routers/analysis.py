@@ -281,6 +281,15 @@ async def _execute_analysis(
     if recipient_email:
         try:
             from email_service import send_analysis_complete_email
+            if "PYTEST_CURRENT_TEST" not in os.environ:
+                try:
+                    from pathlib import Path
+                    from dotenv import load_dotenv
+                    env_file = Path(__file__).resolve().parent.parent / ".env"
+                    if env_file.exists():
+                        load_dotenv(dotenv_path=env_file, override=True)
+                except Exception:
+                    pass
             module1 = full_report.get("module1_revenue", {})
             report_via_notifyhub = (
                 os.getenv("REPORT_VIA_NOTIFYHUB", "").lower() in ("true", "1", "yes")
@@ -659,6 +668,15 @@ async def email_report(
     rec_increase = report.json_report.get("module1_revenue", {}).get("recommended_scenario", "+20%")
 
     try:
+        if "PYTEST_CURRENT_TEST" not in os.environ:
+            try:
+                from pathlib import Path
+                from dotenv import load_dotenv
+                env_file = Path(__file__).resolve().parent.parent / ".env"
+                if env_file.exists():
+                    load_dotenv(dotenv_path=env_file, override=True)
+            except Exception:
+                pass
         report_via_notifyhub = (
             os.getenv("REPORT_VIA_NOTIFYHUB", "").lower() in ("true", "1", "yes")
             and bool(os.getenv("NOTIFYHUB_URL"))
