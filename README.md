@@ -309,6 +309,48 @@ SMTP_PASS=your-16-character-app-password
 ### Option C: Offline / Development Simulation
 If no email credentials are provided, PriceLens logs delivery details to `backend/generated_pdfs/outgoing_emails.json` without interrupting execution.
 
+### Report email via NotifyHub
+
+You can route analysis report emails through the **NotifyHub** HTTP event service with the PDF attached, instead of sending directly via SendGrid or SMTP.
+
+#### Environment Variables
+Configure the following in `backend/.env`:
+```env
+REPORT_VIA_NOTIFYHUB=true
+NOTIFYHUB_URL=https://your-notifyhub-host
+NOTIFYHUB_API_KEY=your_notifyhub_api_key_here
+NOTIFYHUB_TIMEOUT_SECONDS=90
+NOTIFYHUB_MAX_ATTACHMENT_MB=5
+```
+
+#### One-Time NotifyHub Setup
+1. Create a client account in NotifyHub and generate an API key.
+2. In NotifyHub, configure an event template for event type `analysis_report`.
+3. The event template receives the following variables:
+   - `app_name`: Always `"PriceLens"`
+   - `name`: Recipient name (`"there"`)
+   - `company_name`: Product / company name
+   - `report_title`: Always `"Pricing Analysis Report"`
+   - `period`: Analysis period formatted as English month and year (e.g. `"October 2026"`)
+   - `headline`: Executive summary from the recommendations module (shortened to 500 characters)
+   - `current_mrr`: Current MRR formatted with currency symbol and thousands separators (e.g. `"$31,243"`)
+   - `top_strategy`: Recommended pricing strategy name
+   - `expected_change`: Predicted MRR gain percentage with sign (e.g. `"+14%"`)
+   - `change_low`: Lower bound change percentage (empty string `""` if not modeled)
+   - `change_high`: Upper bound change percentage (empty string `""` if not modeled)
+   - `step_1`, `step_2`, `step_3`: Strategy implementation steps (`"1. <step>"`, `"2. <step>"`, `"3. <step>"`)
+   - `data_basis`: Basis of numbers (`"industry benchmarks and AI estimates, not your own customer survey"`)
+   - `attachment_note`: Note regarding attachment status (`"The full report is attached to this email as a PDF."` or in-app note if oversized/missing)
+   - `report_url`: Direct URL to view report in the web app
+4. PDF attachment is passed in `attachments` as base64-encoded PDF bytes.
+
+#### Switching Back to Direct Email
+To switch back to direct sending (SendGrid / SMTP) at any time, simply set the feature flag to `false`:
+```env
+REPORT_VIA_NOTIFYHUB=false
+```
+When `REPORT_VIA_NOTIFYHUB=false`, or if `NOTIFYHUB_URL` / `NOTIFYHUB_API_KEY` are unset, PriceLens runs the existing direct email behavior unchanged.
+
 
 ## Production Deployment
 
