@@ -282,16 +282,36 @@ async def _execute_analysis(
         try:
             from email_service import send_analysis_complete_email
             module1 = full_report.get("module1_revenue", {})
-            await send_analysis_complete_email(
-                to_email=recipient_email,
-                company_name=company_data["name"],
-                company_id=str(company_data["id"]),
-                session_id=str(session_id),
-                pdf_path=pdf_path,
-                current_mrr=module1.get("current_mrr", 0),
-                recommended_increase=str(module1.get("recommended_increase", "+20%")),
-                currency=company_data.get("currency", "USD"),
+            report_via_notifyhub = (
+                os.getenv("REPORT_VIA_NOTIFYHUB", "").lower() in ("true", "1", "yes")
+                and bool(os.getenv("NOTIFYHUB_URL"))
+                and bool(os.getenv("NOTIFYHUB_API_KEY"))
             )
+            if report_via_notifyhub:
+                from notifyhub_client import send_report_email
+                await send_report_email(
+                    to_email=recipient_email,
+                    company_name=company_data["name"],
+                    company_id=str(company_data["id"]),
+                    session_id=str(session_id),
+                    pdf_path=pdf_path,
+                    full_report=full_report,
+                    currency=company_data.get("currency", "USD"),
+                    current_mrr=module1.get("current_mrr", 0),
+                    recommended_increase=str(module1.get("recommended_increase", "+20%")),
+                    idempotency_key=f"analysis-{session_id}-report",
+                )
+            else:
+                await send_analysis_complete_email(
+                    to_email=recipient_email,
+                    company_name=company_data["name"],
+                    company_id=str(company_data["id"]),
+                    session_id=str(session_id),
+                    pdf_path=pdf_path,
+                    current_mrr=module1.get("current_mrr", 0),
+                    recommended_increase=str(module1.get("recommended_increase", "+20%")),
+                    currency=company_data.get("currency", "USD"),
+                )
         except Exception as email_error:
             print(f"[Email] Automatic dispatch notice: {email_error}")
 
@@ -639,15 +659,36 @@ async def email_report(
     rec_increase = report.json_report.get("module1_revenue", {}).get("recommended_scenario", "+20%")
 
     try:
-        await send_analysis_complete_email(
-            to_email=current_user.email,
-            company_name=sess.company.name,
-            company_id=str(sess.company.id),
-            session_id=str(session_id),
-            pdf_path=pdf_path,
-            current_mrr=current_mrr,
-            recommended_increase=str(rec_increase),
+        report_via_notifyhub = (
+            os.getenv("REPORT_VIA_NOTIFYHUB", "").lower() in ("true", "1", "yes")
+            and bool(os.getenv("NOTIFYHUB_URL"))
+            and bool(os.getenv("NOTIFYHUB_API_KEY"))
         )
+        if report_via_notifyhub:
+            from notifyhub_client import send_report_email
+            manual_key = f"analysis-{session_id}-report-manual-{uuid.uuid4()}"
+            await send_report_email(
+                to_email=current_user.email,
+                company_name=sess.company.name,
+                company_id=str(sess.company.id),
+                session_id=str(session_id),
+                pdf_path=pdf_path,
+                full_report=report.json_report,
+                currency=sess.company.currency if hasattr(sess.company, "currency") and sess.company.currency else "USD",
+                current_mrr=current_mrr,
+                recommended_increase=str(rec_increase),
+                idempotency_key=manual_key,
+            )
+        else:
+            await send_analysis_complete_email(
+                to_email=current_user.email,
+                company_name=sess.company.name,
+                company_id=str(sess.company.id),
+                session_id=str(session_id),
+                pdf_path=pdf_path,
+                current_mrr=current_mrr,
+                recommended_increase=str(rec_increase),
+            )
     except Exception as e:
         print(f"[Analysis Email] Dispatch notice: {e}")
 
