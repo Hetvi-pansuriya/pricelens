@@ -26,9 +26,9 @@ import re
 
 import os
 
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 if "openai" in GROQ_MODEL.lower():
-    GROQ_MODEL = "llama-3.3-70b-versatile"
+    GROQ_MODEL = "openai/gpt-oss-120b"
 
 
 async def call_groq_with_retry(client, prompt: str, max_retries: int = 3) -> dict:
