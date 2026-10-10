@@ -54,3 +54,8 @@ Thumbs.db
 
 # Build outputs
 build/
+
+# Ignored assets and internal architecture documentation
+files/
+BACKEND_ARCHITECTURE.md
+FRONTEND_ARCHITECTURE.md

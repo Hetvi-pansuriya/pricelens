@@ -118,10 +118,7 @@ def _send_complete(
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background-color:#11120D;color:#D8D6CD;">
 <table width="100%" cellpadding="0" cellspacing="0">
   <tr><td align="center" style="padding:40px 16px;">
-    <table width="560" cellpadding="0" cellspacing="0" style="background:#
-    
-    
-    ;border-radius:12px;border:1px solid #33352A;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#2c2e29;border-radius:12px;border:1px solid #33352A;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
       
       <!-- Brand Header -->
       <tr>
