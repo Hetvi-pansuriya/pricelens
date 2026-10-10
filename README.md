@@ -1,374 +1,417 @@
 # PriceLens
 
-Automated SaaS pricing sensitivity modeling, AI feature tier auditing, and market competitor benchmarking.
+PriceLens is an automated pricing sensitivity analyzer and competitor benchmarking platform for subscription businesses. A user defines a company with its pricing tiers and features, optionally adds competitor pricing URLs, and runs an analysis that models revenue changes under price increases, audits feature placement across tiers, benchmarks competitor value scores, and recommends three ranked pricing strategies. Reports can be explored interactively or downloaded as an executive three-page PDF.
 
-PriceLens evaluates a software company's packaging and pricing structure in under 45 seconds. It delivers quantitative price elasticity projections, audits feature placement across tiers, benchmarks live competitor pricing pages, and produces an executive-ready 3-page PDF report.
+- Frontend (Vercel): https://pricelens-pi.vercel.app/
+- Backend API (Render): https://pricing-analyzer-8u3n.onrender.com/
+- Interactive API docs: https://pricing-analyzer-8u3n.onrender.com/docs
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-059669?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-18-0284c7?style=flat-square&logo=react)](https://react.dev/)
-[![Vite](https://img.shields.io/badge/Vite-5.0-6366f1?style=flat-square&logo=vite)](https://vitejs.dev/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql)](https://www.postgresql.org/)
-[![WeasyPrint](https://img.shields.io/badge/WeasyPrint-HTML%20to%20PDF-be185d?style=flat-square)](https://weasyprint.org/)
-[![Groq AI](https://img.shields.io/badge/Groq-Llama%203.3%2070B-f97316?style=flat-square)](https://groq.com/)
+## 1. Overview
 
+PriceLens evaluates software packaging and pricing models to help SaaS companies find revenue expansion opportunities without increasing churn. It calculates price elasticity projections across tiers, flags misplaced features, benchmarks competitor offerings, and generates actionable restructuring proposals. The platform is designed for founders, product managers, and pricing operators seeking data-driven pricing intelligence.
 
-## System Architecture
+Live links:
+- Web application: https://pricelens-pi.vercel.app/
+- API server: https://pricing-analyzer-8u3n.onrender.com/
+- Interactive documentation: https://pricing-analyzer-8u3n.onrender.com/docs
 
-PriceLens uses an asynchronous decoupled architecture. The frontend polls an asynchronous ticket pipeline during analysis, ensuring neither client network connections nor server workers block or timeout during web scraping and AI inference.
+## 2. Features
+
+### Company setup
+- Automated URL import: Scrapes a public pricing page and extracts company information, tiers, and features using Groq LLM extraction.
+- Raw text import: Parses pasted pricing table text with LLM extraction and heuristic fallbacks.
+- CSV import: Uploads pricing tiers with validation for prices, user counts, churn rates, and semicolon-separated features, including a downloadable CSV template.
+- Stripe integration: Reads active subscriptions, unit prices, intervals, and 30-day cancellations via restricted API keys to auto-populate tiers and churn metrics.
+- Demo company generator: One-click creation of the pre-configured "CloudHR Pro (sample)" dataset with three tiers and verified revenue numbers.
+- Tier and feature management: Manual tier creation, editing, deletion, bulk feature insertion, and AI feature suggestions tailored to the company industry.
+- Company cloning: Deep copies company metadata, pricing tiers, and competitor targets for scenario modeling.
+
+### Competitors
+- Web scraping: Scrapes competitor pricing pages via static HTTP requests or headless Playwright Chromium for JavaScript-rendered SPAs.
+- Content cleaning: Removes footers, navigation headers, cookie banners, and scripts, keeping text with pricing signals up to an 8,000 character limit.
+- Manual text fallback: Allows manual entry and editing of raw competitor pricing text when pages block automated scraping.
+- Stale data detection: Automatically marks competitor scrapes older than seven days as stale and refreshes them before analysis execution.
+- Competitor suggestions: Proposes direct competitors with verified pricing URLs using Groq LLM or a curated industry directory.
+
+### Analysis modules
+- Module 1 (Revenue impact): Pure Python mathematical modeling calculating current Monthly Recurring Revenue (MRR) and projecting revenue and subscriber changes at +10%, +20%, and +30% price increases using industry-specific elasticity values.
+- Module 2 (Feature audit): Groq LLM categorizes all tier features into gatekeeper (premium feature priced too low), blocker (basic feature locked behind high tier), right placed (correct tier), and undifferentiated (no upgrade incentive).
+- Module 3 (Competitor benchmark): Groq LLM parses competitor tiers and prices, calculates value scores (price per feature), compares feature coverage, and identifies market positioning.
+- Module 4 (Pricing strategies): Groq LLM synthesizes all prior modules into three complete pricing strategies: conservative (low risk, small increase), strategic (repackaging and market alignment), and aggressive (high revenue upside).
+
+### Reports
+- Real-time progress: Streams analysis execution status (0% to 100%) to the frontend via Server-Sent Events (SSE) using short-lived progress tickets.
+- Interactive dashboard: Displays KPI cards, elasticity tables, feature audit tags, competitor value score charts, and expandable strategy cards.
+- Executive PDF: Compiles an executive three-page report styled with dark layout tokens using WeasyPrint and Jinja2 templates.
+- Email delivery: Sends completed reports and attached PDFs to the user via SendGrid or SMTP fallback.
+- Run history: Stores past analysis sessions with statuses, timestamps, MRR snapshots, and direct links to historical reports.
+
+### Account
+- JWT authentication: Bearer token authorization using python-jose and configurable expiration hours.
+- Password security: bcrypt password hashing via passlib and constant-time password verification.
+- Password recovery: Secure one-hour password reset tokens delivered via transactional email.
+- Account protection: Brute-force lockout locking an email address for 15 minutes after 5 consecutive failed login attempts.
+- Data privacy: Self-service account deletion cascading to all user companies, tiers, competitors, sessions, and reports.
+
+## 3. System Architecture
+
+### End to end system architecture
 
 ```mermaid
-flowchart TB
-    subgraph Client ["Client Layer (React 18 + Vite)"]
-        UI[Responsive SPA Interface]
-        AuthCtx[Auth Context & JWT Store]
-        AxiosClient[Axios Client + Interceptors]
-        Poller[Asynchronous Ticket Poller]
-    end
-
-    subgraph Gateway ["API & Security Gateway (FastAPI)"]
-        RouterAuth["/auth (JWT, Lockout Protection)"]
-        RouterComp["/companies (CRUD & Duplication)"]
-        RouterSetup["/setup (AI Scraper, CSV, Seeders)"]
-        RouterAnalysis["/analysis (Ticket Dispatch & Polling)"]
-        RateLimiter["SlowAPI Rate Limiter"]
-    end
-
-    subgraph Workers ["Analysis & Intelligence Pipeline"]
-        Scraper["5-Layer Web Scraper (Requests + Playwright)"]
-        Mod1["Module 1: Pure Python Elasticity & MRR Math"]
-        Mod2["Module 2: Groq AI Feature Tier Audit"]
-        Mod3["Module 3: Groq AI Competitor Benchmark"]
-        Mod4["Module 4: Groq AI Strategic Restructuring"]
-    end
-
-    subgraph Deliverables ["Export & Notification Engine"]
-        PDFGen["WeasyPrint Executive 3-Page PDF Generator"]
-        Mailer["Email Service (SendGrid / SMTP)"]
-    end
-
-    subgraph Persistence ["Data Store (PostgreSQL)"]
-        DB[(Relational DB: Users, Companies, Tiers, Reports)]
-    end
-
-    UI --> AxiosClient
-    AxiosClient --> RateLimiter
-    RateLimiter --> RouterAuth & RouterComp & RouterSetup & RouterAnalysis
-    RouterAuth & RouterComp --> DB
-
-    RouterSetup --> Scraper
-    RouterAnalysis --> Poller
-    Poller -.->|Poll every 2s| RouterAnalysis
-
-    RouterAnalysis --> Mod1 & Mod2
-    Mod1 & Mod2 --> Mod3
-    Mod3 --> Mod4
-    Mod4 --> DB
-    Mod4 --> PDFGen
-    PDFGen --> Mailer
-    Mailer -.->|Auto-dispatch Report| UserEmail[Registered User Email]
+flowchart TD
+    User[Browser Client] -->|HTTPS| Frontend[Vercel Frontend: React SPA]
+    Frontend -->|REST API and SSE| Backend[Render Backend: FastAPI]
+    Backend -->|Async SQL / asyncpg| DB[(PostgreSQL Database)]
+    Backend -->|LLM Inference| Groq[Groq API: Llama Models]
+    Backend -->|HTTP / Playwright Scraping| Competitors[Competitor Websites]
+    Backend -->|HTML to PDF| PDFGen[WeasyPrint PDF Generator]
+    Backend -->|Transactional Email| SendGrid[SendGrid / SMTP Service]
+    PDFGen -->|Generated PDF File| Backend
 ```
 
+### Analysis pipeline sequence
 
-## Detailed Execution Flow
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Client as Browser Client
+    participant API as FastAPI Backend
+    participant DB as PostgreSQL
+    participant Scraper as Scraper Engine
+    participant M1 as Module 1 (Math)
+    participant M2 as Module 2 (Groq LLM)
+    participant M3 as Module 3 (Groq LLM)
+    participant M4 as Module 4 (Groq LLM)
+    participant PDF as WeasyPrint
+    participant Mail as Email Service
 
+    Client->>API: POST /analysis/start/{company_id}
+    API->>DB: Insert AnalysisSession (running, progress=0)
+    API-->>Client: 202 Accepted (session_id)
+    Client->>API: POST /analysis/progress-ticket/{session_id}
+    API-->>Client: Ticket token (valid 60s)
+    Client->>API: GET /analysis/progress/{session_id}?ticket=...
+    Note over Client,API: SSE stream connected
+
+    API->>DB: Load company, tiers, features, competitors
+    opt Stale or unscraped competitors
+        API->>Scraper: Scrape pending competitor URLs
+        Scraper-->>API: Extracted competitor pricing text
+        API->>DB: Update competitor records
+    end
+
+    par Parallel execution
+        API->>M1: Compute revenue elasticity (+10%, +20%, +30%)
+        M1-->>API: Current MRR and projected outcomes
+    and
+        API->>M2: Classify feature placements via Groq LLM
+        M2-->>API: Feature audit categories
+    end
+    API-->>Client: SSE Event: progress=50 (m1_m2_complete)
+
+    API->>M3: Benchmark competitors and value scores via Groq LLM
+    M3-->>API: Competitor pricing, value scores, position
+    API-->>Client: SSE Event: progress=75 (m3_complete)
+
+    API->>M4: Generate 3 pricing proposals via Groq LLM
+    M4-->>API: Conservative, strategic, and aggressive proposals
+    API-->>Client: SSE Event: progress=90 (m4_complete)
+
+    API->>PDF: Render 3-page executive PDF
+    PDF-->>API: PDF binary saved to disk
+    API->>DB: Save Report record and mark session completed
+    API-->>Client: SSE Event: progress=100 (completed, report_id)
+
+    opt Email notifications enabled
+        API->>Mail: Deliver analysis summary and attached PDF
+        Mail-->>API: Delivery confirmed
+    end
 ```
-1. Input & Onboarding
-   ├── Web URL Scrape      -> Headless browser fetches public pricing tables
-   ├── CSV Import          -> Parses tiers, prices, subscriber counts, and churn rates
-   ├── Manual Wizard       -> Interactive builder with tag clouds and industry suggestions
-   └── Instant Demo        -> Preloaded CloudHR Pro sample company
 
-2. Background Analysis Pipeline (Ticket-Based)
-   ├── POST /analysis/companies/:id/run creates a persistent ticket in PostgreSQL
-   ├── Module 1: Deterministic price elasticity modeling (+10%, +20%, +30% scenarios)
-   ├── Module 2: Groq AI audits feature tiering (Gatekeeper, Blocker, Right-Placed)
-   ├── Module 3: Scrapes and benchmarks competitor pricing pages
-   └── Module 4: Synthesizes Conservative, Aggressive, and Strategic packages
+### Component responsibilities
 
-3. Delivery & Output
-   ├── Real-time UI updates via ticket status polling
-   ├── Publication of interactive 4-module web dashboard
-   ├── Compilation of executive 3-page WeasyPrint PDF report
-   └── Automatic email delivery with PDF attachment (SendGrid / SMTP)
-```
+| Component | Responsibility |
+| --- | --- |
+| Vercel Frontend | Single-page React interface for onboarding, competitor setup, interactive dashboards, and SSE progress tracking. |
+| FastAPI Backend | Asynchronous API handling routing, input validation, rate limiting, background orchestration, and SSE generation. |
+| PostgreSQL | Relational database holding user credentials, company models, tiers, scraped text, sessions, and report payloads. |
+| Groq API | Fast LLM inference executing feature classification (M2), competitor parsing (M3), and strategy generation (M4). |
+| Web Scraper | Multi-layer scraping utility using requests and headless Playwright Chromium to extract public pricing data. |
+| WeasyPrint | Server-side document engine transforming HTML and CSS templates into an executive three-page PDF. |
+| SendGrid / SMTP | Email delivery service dispatching password reset links and completed pricing analysis PDF files. |
 
+## 4. Tech Stack
 
-## Core Analysis Modules
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 19, Vite 8, React Router DOM 7, Axios, Lucide React |
+| Backend | Python 3.11, FastAPI 0.111, SQLAlchemy 2.0 (asyncio), asyncpg 0.29, Pydantic 2, Alembic 1.13 |
+| Database | PostgreSQL 16 |
+| AI Inference | Groq Python SDK 1.5 (Llama 3 models via engine/groq_utils.py) |
+| Web Scraping | Requests, BeautifulSoup4, Playwright Chromium 1.44 |
+| PDF Generation | WeasyPrint 52.5, Jinja2 3.1 |
+| Email Service | SendGrid 6.11, Python smtplib / email |
+| Rate Limiting | SlowAPI 0.1.10 (limits on IP and user ID) |
+| Hosting | Render (Backend Web Service), Vercel (Frontend Static SPA) |
 
-### 1. Revenue Sensitivity Modeling (Deterministic Python)
-- Calculates baseline Monthly Recurring Revenue (MRR) and Annual Recurring Revenue (ARR).
-- Applies sector-calibrated price elasticity coefficients based on target customer segment (SMB, Mid-Market, Enterprise).
-- Projects revenue impact and net change across +10%, +20%, and +30% price increases, factoring in predicted customer churn.
-- Guaranteed mathematical determinism: Identical inputs consistently yield identical financial models.
+## 5. Project Structure
 
-### 2. Feature Tier Audit (Groq AI)
-- Evaluates feature distribution against SaaS packaging benchmarks.
-- Classifies each feature into one of four operational categories:
-  - Gatekeeper: High-value enterprise features that drive tier upgrades (e.g., SSO, audit logs, custom roles).
-  - Blocker: Essential core capabilities mistakenly placed behind premium paywalls.
-  - Right-Placed: Appropriately positioned features matching user willingness to pay.
-  - Undifferentiated: Common utilities that do not justify pricing premiums.
-
-### 3. Competitor Benchmarking (5-Layer Scraper + AI)
-- Multi-tier extraction engine:
-  - Layer 1: Fast asynchronous HTTP request (`requests` / `httpx`).
-  - Layer 2: Headless browser automation (`Playwright` Chromium) for dynamic JavaScript applications.
-  - Layer 3: Heuristic HTML body extraction stripping boilerplate and navigation.
-  - Layer 4: Fallback heuristic text parser.
-  - Layer 5: Manual pricing text paste override.
-- Compares tier price points, packaging models, and feature parity against competitors.
-
-### 4. Strategic Packaging & Recommendations
-- Synthesizes findings into three concrete, actionable strategies:
-  - Conservative Plan: Low-risk price increase with minimal expected churn.
-  - Aggressive Plan: Maximizes MRR yield for products with strong pricing power.
-  - Strategic Plan: Structural re-packaging, moving gatekeeper features to enterprise tiers.
-
-
-## Repository Layout
-
-```
+```text
 pricing-analyzer/
-├── BACKEND_ARCHITECTURE.md        # Deep dive into backend logic, tests, and workers
-├── FRONTEND_ARCHITECTURE.md       # Frontend design system, routing, and dictionary
-├── docker-compose.yml             # Local PostgreSQL 16 container definition
-│
 ├── backend/
-│   ├── main.py                    # FastAPI application, CORS, and router registration
-│   ├── models.py                  # SQLAlchemy declarative relational schemas
-│   ├── schemas.py                 # Pydantic v2 validation models
-│   ├── database.py                # Async engine and sessionmaker
-│   ├── rate_limiter.py            # SlowAPI endpoint rate limiting & brute-force protection
-│   ├── url_safety.py              # SSRF protection and URL validation
-│   ├── scraper.py                 # Multi-layer competitor pricing page scraper
-│   ├── pdf_generator.py           # WeasyPrint 3-page executive PDF generator
-│   ├── email_service.py           # SendGrid and SMTP email dispatcher with audit logging
-│   ├── build.sh                   # Production build script installing WeasyPrint dependencies
-│   ├── requirements.txt           # Python dependencies
-│   ├── alembic/                   # Database migrations
-│   ├── engine/                    # The four pricing analysis modules
-│   │   ├── groq_utils.py          # AI client wrapper with retry logic
-│   │   ├── module1_revenue.py     # Deterministic elasticity and MRR modeling
-│   │   ├── module2_features.py    # AI feature tier classification
-│   │   ├── module3_benchmark.py   # AI competitor value comparison
-│   │   └── module4_recommendations.py # AI strategic packaging synthesis
-│   ├── routers/                   # HTTP endpoints grouped by domain
-│   │   ├── auth.py                # Authentication, password resets, and user sessions
-│   │   ├── companies.py           # Company CRUD and duplication
-│   │   ├── setup.py               # CSV parsing, web scrapers, and sample seeders
-│   │   ├── competitors.py         # Competitor management and scraping
-│   │   └── analysis.py            # Analysis execution, ticket polling, and PDF retrieval
-│   └── tests/                     # Pytest automated test suite (34 unit & integration tests)
-│
-└── frontend/
-    ├── index.html                 # HTML entry point with modern typography
-    ├── package.json               # Node.js dependencies
-    ├── vite.config.js             # Vite configuration
-    └── src/
-        ├── App.jsx                # Application root and route definitions
-        ├── main.jsx               # React DOM mounting
-        ├── index.css              # Font declarations and root resets
-        ├── api/                   # Centralized Axios services with JWT interceptors
-        │   ├── client.js          # HTTP client instance
-        │   ├── auth.js            # Auth requests
-        │   ├── companies.js       # Company API calls
-        │   ├── setup.js           # Setup & import endpoints
-        │   ├── tiers.js           # Tier and feature management
-        │   ├── competitors.js     # Competitor operations
-        │   └── analysis.js        # Analysis ticket & report endpoints
-        ├── components/            # Reusable UI elements
-        │   ├── common/            # AccountModal, StatusBadge
-        │   └── layout/            # AppLayout, Sidebar, ProtectedRoute
-        ├── context/
-        │   └── AuthContext.jsx    # User session state management
-        ├── pages/                 # Full-page views
-        │   ├── Login.jsx          # Swapped layout authentication
-        │   ├── Signup.jsx         # Account creation
-        │   ├── ForgotPassword.jsx # Password reset request
-        │   ├── ResetPassword.jsx  # Token-based password update
-        │   ├── Companies.jsx      # Workspace overview & company switcher
-        │   ├── CompanySetup.jsx   # 4-way tier onboarding wizard
-        │   ├── PricingTiers.jsx   # Tier configuration and feature management
-        │   ├── Competitors.jsx    # Competitor scraping and tracking
-        │   ├── RunAnalysis.jsx    # Ticket-based progress and trigger
-        │   ├── Report.jsx         # 4-module interactive report & PDF download
-        │   ├── CompanyReports.jsx # Company-specific report archive
-        │   └── AnalysisHistory.jsx # Global audit log of completed reports
-        └── styles/                # Vanilla CSS design system
-            ├── variables.css      # CSS variables (colors, typography, shadows)
-            ├── global.css         # Universal element styles
-            ├── layout.css         # Grid layouts, sidebar styling, split auth screens
-            └── components.css     # Buttons, cards, badges, inputs, and tables
+│   ├── alembic/                 # Database migration scripts and environment config
+│   ├── engine/                  # Core pricing analysis intelligence pipeline
+│   │   ├── groq_utils.py        # Groq client wrapper with retries and JSON fallback
+│   │   ├── module1_revenue.py   # Pure Python elasticity and MRR projection math
+│   │   ├── module2_features.py  # Groq LLM feature tier placement audit
+│   │   ├── module3_benchmark.py # Groq LLM competitor value score benchmarking
+│   │   └── module4_recommendations.py # Groq LLM pricing strategy proposal generator
+│   ├── routers/                 # FastAPI router endpoints
+│   │   ├── analysis.py          # Session kickoff, SSE progress streaming, and reports
+│   │   ├── auth.py              # User signup, login, password resets, and account deletion
+│   │   ├── companies.py         # Company, tier, feature CRUD, bulk actions, and cloning
+│   │   ├── competitors.py       # Competitor URL scraping, manual text, and suggestions
+│   │   └── setup.py             # Magic URL setup, pasted text, CSV, Stripe, and demo company
+│   ├── build.sh                 # Render build script for system packages and Playwright
+│   ├── database.py              # Async SQLAlchemy engine and session dependency
+│   ├── email_service.py         # SendGrid and SMTP email delivery templates
+│   ├── models.py                # SQLAlchemy ORM models for all relational tables
+│   ├── pdf_generator.py         # WeasyPrint executive 3-page PDF template and compiler
+│   ├── rate_limiter.py          # SlowAPI rate limiting rules and brute-force lockout
+│   ├── requirements.txt         # Pinned Python package dependencies
+│   ├── schemas.py               # Pydantic request and response schemas
+│   ├── scraper.py               # Two-layer web scraper (requests and Playwright)
+│   ├── url_safety.py            # SSRF validation, DNS verification, and private IP blocking
+│   └── main.py                  # FastAPI application entrypoint, CORS, and lifespan handler
+├── frontend/
+│   ├── src/
+│   │   ├── api/                 # Axios HTTP client, interceptors, and API service calls
+│   │   ├── components/          # Reusable UI elements (modals, badges, navigation bars)
+│   │   ├── context/             # React authentication and session state provider
+│   │   ├── pages/               # Application route views (Login, Setup, Dashboard, Report)
+│   │   ├── styles/              # Global variables, component CSS, and layout tokens
+│   │   ├── App.jsx              # Application router definition and route guards
+│   │   └── main.jsx             # React DOM root entrypoint
+│   ├── package.json             # Frontend dependencies and build scripts
+│   ├── vercel.json              # Vercel deployment rewrite rules for SPA routing
+│   └── vite.config.js           # Vite build tool configuration
+└── docker-compose.yml           # Local PostgreSQL service definition
 ```
 
+## 6. Getting Started
 
-## Local Development Setup
+### Prerequisites
+- Python 3.11 or newer
+- Node.js 18 or newer and npm
+- A running PostgreSQL database instance
+- System dependencies for WeasyPrint (on Linux: `libpango-1.0-0`, `libcairo2`, `libgdk-pixbuf2.0-0`, `libffi-dev`; on Windows: GTK3 runtime installer)
 
-### Requirements
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 14+ (or Docker)
-- Groq API Key ([console.groq.com](https://console.groq.com))
+### Backend setup
 
-### 1. Database Setup (Docker)
-```bash
-docker compose up -d
-```
-Starts a PostgreSQL 16 container named `pricelens_db` running on `localhost:5432`.
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
 
-### 2. Backend Setup
-```bash
-cd backend
+2. Create and activate a Python virtual environment:
+   ```bash
+   python -m venv venv
+   # On Linux/macOS:
+   source venv/bin/activate
+   # On Windows:
+   venv\Scripts\activate
+   ```
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+3. Install required Python packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-# Install dependencies
-pip install -r requirements.txt
+4. Install the Chromium browser binary for Playwright scraping:
+   ```bash
+   playwright install chromium
+   ```
 
-# Install Playwright browser binaries for JS scraping
-playwright install chromium
+5. Configure environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` with your PostgreSQL database URL, a 32-character JWT secret, and your Groq API key.
 
-# Configure environment
-cp .env.example .env
-```
+6. Apply database migrations:
+   ```bash
+   alembic upgrade head
+   ```
 
-Ensure your `backend/.env` contains the required keys:
-```env
-DATABASE_URL=postgresql+asyncpg://postgres:password@localhost:5432/pricelens
-JWT_SECRET=your-minimum-32-character-secret-key-goes-here-abc123
-GROQ_API_KEY=gsk_your_groq_api_key_here
-FRONTEND_URL=http://localhost:5173
-```
+7. Start the backend development server:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+   The API will be available at `http://localhost:8000` with interactive docs at `http://localhost:8000/docs`.
 
-Run database migrations and start the server:
-```bash
-alembic upgrade head
-uvicorn main:app --reload --port 8000
-```
-Backend API will be accessible at `http://localhost:8000`.  
-Interactive OpenAPI documentation is available at `http://localhost:8000/docs`.
+### Frontend setup
 
-### 3. Frontend Setup
-```bash
-cd frontend
+1. Navigate to the frontend directory:
+   ```bash
+   cd ../frontend
+   ```
 
-# Install Node dependencies
-npm install
+2. Install JavaScript dependencies:
+   ```bash
+   npm install
+   ```
 
-# Configure environment
-cp .env.example .env
-```
+3. Configure environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Verify that `VITE_API_URL` is set to `http://localhost:8000`.
 
-Start Vite dev server:
-```bash
-npm run dev
-```
-Frontend will be accessible at `http://localhost:5173` (or `http://localhost:5174`).
+4. Start the frontend development server:
+   ```bash
+   npm run dev
+   ```
+   Open `http://localhost:5173` in your browser.
 
+## 7. Environment Variables
 
-## Automated Test Suite
+### Backend environment variables (.env)
 
-The backend contains 34 automated unit and integration tests covering the analysis engine, authentication, security rate limits, and URL safety.
+Reference file: `backend/.env.example`
 
-```bash
-cd backend
-pytest tests/
-```
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string using the asyncpg driver (postgresql+asyncpg://...). |
+| `JWT_SECRET` | Secret key used for signing authentication tokens (minimum 32 characters required). |
+| `JWT_ALGORITHM` | Algorithm used for token generation (defaults to HS256). |
+| `JWT_EXPIRE_HOURS` | Expiration lifespan of issued JWT access tokens in hours (defaults to 24). |
+| `GROQ_API_KEY` | API authentication key for Groq LLM inference in analysis modules 2, 3, and 4. |
+| `FRONTEND_URL` | URL of the frontend web application used for links in emails and CORS headers. |
+| `CORS_ORIGINS` | Comma-separated list of allowed HTTP origins permitted to call the API. |
+| `FROM_EMAIL` | Sender email address appearing on transactional messages and reports. |
+| `SENDGRID_API_KEY` | Optional API key for SendGrid to dispatch transactional emails and PDF reports. |
+| `SMTP_HOST` | Optional SMTP server hostname for fallback email delivery. |
+| `SMTP_PORT` | Optional SMTP server port (typically 587 for TLS). |
+| `SMTP_USER` | Optional SMTP username or email address. |
+| `SMTP_PASS` | Optional SMTP password or app-specific password. |
+| `ANALYSIS_TIMEOUT_SECONDS` | Maximum runtime in seconds before an analysis job times out (defaults to 240). |
+| `ANALYSIS_DAILY_LIMIT` | Maximum number of analysis runs allowed per user per day (defaults to 5). |
+| `SETUP_IMPORT_DAILY_LIMIT` | Maximum number of magic URL or text setup imports per user per day (defaults to 20). |
+| `COMPETITOR_REFRESH_DAYS` | Threshold in days before scraped competitor data is treated as stale (defaults to 7). |
+| `PLAYWRIGHT_BROWSERS_PATH` | Filesystem location for cached Playwright browser binaries in deployment. |
 
-Test coverage includes:
-- `test_analysis_reliability.py`: Verifies mathematical determinism and error tolerance across analysis modules.
-- `test_login_tokens.py`: Validates JWT token issuance, verification, and revocation.
-- `test_ownership.py`: Ensures strict multi-tenant isolation (users cannot access another tenant's companies).
-- `test_password_reset.py`: Tests secure token generation, expiration, and password update logic.
-- `test_rate_limits.py`: Verifies brute-force protection and lockout thresholds on auth endpoints.
-- `test_setup_features.py`: Tests CSV import, AI URL extraction, and sample company generation.
-- `test_url_safety.py`: Validates SSRF prevention, blocking localhost and internal IP scraping.
+### Frontend environment variables (.env)
 
+Reference file: `frontend/.env.example`
 
-## Email Delivery Configuration
+| Variable | Purpose |
+| --- | --- |
+| `VITE_API_URL` | Base URL of the backend FastAPI server (e.g. http://localhost:8000 or production Render URL). |
 
-PriceLens automatically emails completed analysis reports with the 3-page PDF attached. Configure one of the options below in `backend/.env`:
+## 8. API Overview
 
-### Option A: SendGrid API
-```env
-SENDGRID_API_KEY=SG.your_api_key_here
-FROM_EMAIL=notifications@yourdomain.com
-```
+Detailed interactive schemas, query parameters, and test forms are available at https://pricing-analyzer-8u3n.onrender.com/docs.
 
-### Option B: Standard SMTP (e.g., Gmail)
-```env
-FROM_EMAIL=your-account@gmail.com
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-account@gmail.com
-SMTP_PASS=your-16-character-app-password
-```
+### Authentication (`/auth`)
 
-### Option C: Offline / Development Simulation
-If no email credentials are provided, PriceLens logs delivery details to `backend/generated_pdfs/outgoing_emails.json` without interrupting execution.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/auth/signup` | Create account and return JWT access token. |
+| `POST` | `/auth/login` | Validate credentials and return JWT access token. |
+| `GET` | `/auth/me` | Fetch authenticated user profile. |
+| `POST` | `/auth/forgot-password` | Send password reset token to email. |
+| `POST` | `/auth/reset-password` | Validate reset token and update password. |
+| `DELETE` | `/auth/account` | Permanently delete account and all data. |
 
-### Report email via NotifyHub
+### Companies and tiers (`/companies`)
 
-You can route analysis report emails through the **NotifyHub** HTTP event service with the PDF attached, instead of sending directly via SendGrid or SMTP.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/companies` | List all companies owned by user. |
+| `POST` | `/companies` | Create a new company. |
+| `GET` | `/companies/{id}` | Get company with tiers, features, and competitors. |
+| `PUT` | `/companies/{id}` | Update company name, industry, or description. |
+| `DELETE` | `/companies/{id}` | Delete company and all associated records. |
+| `POST` | `/companies/{id}/duplicate` | Clone company with tiers, features, and competitors. |
+| `POST` | `/companies/{id}/tiers` | Add a pricing tier to a company. |
+| `PUT` | `/companies/{id}/tiers/{tid}` | Update tier price, billing cycle, or user counts. |
+| `DELETE` | `/companies/{id}/tiers/{tid}` | Remove a pricing tier. |
+| `POST` | `/companies/{id}/tiers/{tid}/features` | Add a feature to a pricing tier. |
+| `POST` | `/companies/{id}/tiers/{tid}/features/bulk` | Add multiple features to a tier at once. |
+| `POST` | `/companies/{id}/tiers/{tid}/features/suggest` | Get AI suggestions for tier features. |
+| `DELETE` | `/companies/{id}/tiers/{tid}/features/{fid}` | Delete a feature from a tier. |
 
-#### Environment Variables
-Configure the following in `backend/.env`:
-```env
-REPORT_VIA_NOTIFYHUB=true
-NOTIFYHUB_URL=https://your-notifyhub-host
-NOTIFYHUB_API_KEY=your_notifyhub_api_key_here
-NOTIFYHUB_TIMEOUT_SECONDS=90
-NOTIFYHUB_MAX_ATTACHMENT_MB=5
-```
+### Competitors (`/companies/{id}/competitors`)
 
-#### One-Time NotifyHub Setup
-1. Create a client account in NotifyHub and generate an API key.
-2. In NotifyHub, configure an event template for event type `analysis_report`.
-3. The event template receives the following variables:
-   - `app_name`: Always `"PriceLens"`
-   - `name`: Recipient name (`"there"`)
-   - `company_name`: Product / company name
-   - `report_title`: Always `"Pricing Analysis Report"`
-   - `period`: Analysis period formatted as English month and year (e.g. `"October 2026"`)
-   - `headline`: Executive summary from the recommendations module (shortened to 500 characters)
-   - `current_mrr`: Current MRR formatted with currency symbol and thousands separators (e.g. `"$31,243"`)
-   - `top_strategy`: Recommended pricing strategy name
-   - `expected_change`: Predicted MRR gain percentage with sign (e.g. `"+14%"`)
-   - `change_low`: Lower bound change percentage (empty string `""` if not modeled)
-   - `change_high`: Upper bound change percentage (empty string `""` if not modeled)
-   - `step_1`, `step_2`, `step_3`: Strategy implementation steps (`"1. <step>"`, `"2. <step>"`, `"3. <step>"`)
-   - `data_basis`: Basis of numbers (`"industry benchmarks and AI estimates, not your own customer survey"`)
-   - `attachment_note`: Note regarding attachment status (`"The full report is attached to this email as a PDF."` or in-app note if oversized/missing)
-   - `report_url`: Direct URL to view report in the web app
-4. PDF attachment is passed in `attachments` as base64-encoded PDF bytes.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/companies/{id}/competitors` | List competitors added to a company. |
+| `POST` | `/companies/{id}/competitors` | Add competitor URL and start scrape. |
+| `PATCH` | `/companies/{id}/competitors/{comp_id}/manual` | Update competitor with pasted pricing text. |
+| `POST` | `/companies/{id}/competitors/{comp_id}/refresh` | Trigger re-scrape of single competitor. |
+| `POST` | `/companies/{id}/competitors/suggest` | Suggest competitors for company industry. |
+| `DELETE` | `/companies/{id}/competitors/{comp_id}` | Remove competitor from company. |
 
-#### Switching Back to Direct Email
-To switch back to direct sending (SendGrid / SMTP) at any time, simply set the feature flag to `false`:
-```env
-REPORT_VIA_NOTIFYHUB=false
-```
-When `REPORT_VIA_NOTIFYHUB=false`, or if `NOTIFYHUB_URL` / `NOTIFYHUB_API_KEY` are unset, PriceLens runs the existing direct email behavior unchanged.
+### Setup and import (`/setup`)
 
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/setup/import-from-url` | Scrape pricing URL and extract draft tiers via AI. |
+| `POST` | `/setup/import-from-text` | Parse raw text and extract draft tiers via AI. |
+| `GET` | `/setup/csv-template` | Download CSV template for tier imports. |
+| `POST` | `/setup/parse-csv` | Validate and parse uploaded CSV tier file. |
+| `POST` | `/setup/import-from-stripe` | Extract subscriptions and pricing from Stripe API key. |
+| `POST` | `/setup/sample-company` | Create or retrieve the sample CloudHR Pro company. |
 
-## Production Deployment
+### Analysis and reports (`/analysis`)
 
-### Backend (Render)
-1. Create a new Web Service pointing to your repository.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/analysis/start/{company_id}` | Initiate background pricing analysis. |
+| `POST` | `/analysis/progress-ticket/{session_id}` | Generate one-time ticket for SSE connection. |
+| `GET` | `/analysis/progress/{session_id}` | Stream real-time analysis progress via SSE. |
+| `GET` | `/analysis/report/{session_id}` | Retrieve complete analysis JSON report. |
+| `GET` | `/analysis/report/{session_id}/pdf` | Download executive 3-page PDF report. |
+| `POST` | `/analysis/report/{session_id}/email` | Email report summary and PDF to user. |
+| `GET` | `/analysis/history/{company_id}` | Retrieve past analysis sessions for company. |
+
+### Health check
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/health` | Check API status and version string. |
+
+## 9. Deployment
+
+### Render (Backend Web Service)
+1. Create a new Web Service on Render linked to this repository.
 2. Set Root Directory to `backend`.
-3. Set Build Command to `./build.sh` (installs Pango, Cairo, and system packages for WeasyPrint).
-4. Set Start Command to `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-5. Supply the required environment variables:
-   - `DATABASE_URL`: Connection string from your managed PostgreSQL instance.
-   - `JWT_SECRET`: Random 64-character secret.
-   - `GROQ_API_KEY`: Production Groq key.
-   - `FRONTEND_URL`: URL of your deployed Vercel frontend.
+3. Set Environment to `Python 3`.
+4. Configure Build Command:
+   ```bash
+   ./build.sh
+   ```
+   `build.sh` installs required Pango and Cairo libraries for WeasyPrint, installs Python requirements, applies database migrations (`alembic upgrade head`), and installs the Playwright Chromium browser.
+5. Configure Start Command:
+   ```bash
+   uvicorn main:app --host 0.0.0.0 --port $PORT
+   ```
+6. Add the environment variables listed in the backend table, including `DATABASE_URL`, `JWT_SECRET`, `GROQ_API_KEY`, and `FRONTEND_URL`.
 
-### Frontend (Vercel)
-1. Import repository into Vercel.
+### Vercel (Frontend Static Application)
+1. Create a new project on Vercel importing this repository.
 2. Set Root Directory to `frontend`.
-3. Add Environment Variable:
-   - `VITE_API_URL`: URL of your deployed backend (e.g., `https://pricelens-api.onrender.com`).
-4. Build command: `npm run build`.
-5. Output directory: `dist`.
+3. Select `Vite` as the framework preset.
+4. Set Build Command to `npm run build` and Output Directory to `dist`.
+5. Add the environment variable:
+   - `VITE_API_URL`: The production URL of your backend (for example: `https://pricing-analyzer-8u3n.onrender.com`).
+6. Deploy the project. The included `vercel.json` ensures client-side routes redirect properly to `index.html`.
+
+## 10. Security
+
+- JWT authentication: Stateless Bearer authentication enforcing token validity and requiring a minimum 32-character secret key.
+- Password hashing: Cryptographic bcrypt password hashing with unique salts, verified using constant-time algorithms.
+- Rate limiting: Endpoint-specific limits enforced by SlowAPI across login, registration, competitor scraping, setup imports, and analysis execution.
+- Brute-force lockout: Automatic 15-minute lockout on accounts that exceed five consecutive failed login attempts.
+- Server-Side Request Forgery (SSRF) defense: Strict URL filtering in `url_safety.py` restricting protocols to HTTP/HTTPS, blocking internal and loopback IP spaces (including link-local and multicast ranges), enforcing maximum redirect counts of 5, and capping response payload size at 2 MB.
+- CORS policy: Explicitly restricted cross-origin access configured via `CORS_ORIGINS` and regex filtering for authorized domains.
