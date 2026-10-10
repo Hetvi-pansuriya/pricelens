@@ -91,9 +91,8 @@ default_cors_origins = [
     "http://localhost:5175",       # Vite alternate port
     "http://localhost:3000",       # React dev server (Create React App default port)
     frontend_url,                  # deployed Vercel production frontend URL
-    "https://pricelens.vercel.app",             # Production Vercel URL
-    "https://pricing-analyzer-32hw.vercel.app", # Alternative Vercel URL
-    "https://pricelens-app.vercel.app",
+    "https://pricelens-pi.vercel.app",          # Vercel URL
+    "https://pricelens-ii1dkrr0g-hetvipansuriya75-1764s-projects.vercel.app", # Alternative Vercel URL
 ]
 
 cors_env = os.getenv("CORS_ORIGINS")
@@ -105,6 +104,7 @@ else:
 app.add_middleware(
     CORSMiddleware,                    # the middleware class to use
     allow_origins=cors_origins,        # list of domains allowed to call this API
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,           # allow cookies and Authorization headers to be sent
     allow_methods=["*"],              # allow all HTTP methods (GET, POST, DELETE, etc.)
     allow_headers=["*"],              # allow all headers (including Authorization for JWT)
