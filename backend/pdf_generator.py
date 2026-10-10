@@ -152,7 +152,7 @@ body {
 
 /* ── Callout Boxes ── */
 .callout-exec {
-  background-color: #181A14;
+  background-color: #2a2e24;
   border-left: 3.5px solid #565449;
   border-top: 1px solid #282A22;
   border-right: 1px solid #282A22;

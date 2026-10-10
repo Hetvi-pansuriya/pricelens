@@ -118,7 +118,7 @@ def _send_complete(
 <body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background-color:#11120D;color:#D8D6CD;">
 <table width="100%" cellpadding="0" cellspacing="0">
   <tr><td align="center" style="padding:40px 16px;">
-    <table width="560" cellpadding="0" cellspacing="0" style="background:#181A14;border-radius:12px;border:1px solid #33352A;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#2a2e24;border-radius:12px;border:1px solid #33352A;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
       
       <!-- Brand Header -->
       <tr>
@@ -312,7 +312,7 @@ def _send_reset(to_email: str, reset_link: str) -> bool:
 
     subject = "PriceLens — Reset your password"
     html_content = f"""
-    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#181A14;border:1px solid #33352A;border-radius:10px;color:#D8D6CD;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#2a2e24;border:1px solid #33352A;border-radius:10px;color:#D8D6CD;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
       <h2 style="color:#F5F4EE;margin-top:0;">Reset your PriceLens password</h2>
       <p style="color:#D8D6CD;font-size:14px;line-height:1.5;">Click below to set a new password. This secure link expires in 1 hour.</p>
       <div style="text-align:center;margin:24px 0;">
