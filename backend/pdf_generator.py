@@ -32,20 +32,21 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 @page {
   size: A4;
   margin: 18mm 18mm 16mm 18mm;
+  background-color: #11120D;
   @bottom-left {
     content: "PriceLens · Pricing Sensitivity Report";
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
     font-size: 8pt;
-    color: #78716C;
-    border-top: 1px solid #E7E5E4;
+    color: #8C8A7E;
+    border-top: 1px solid #33352A;
     padding-top: 6px;
   }
   @bottom-right {
     content: "{{ company_name }} · {{ generated_date_short }} · Confidential · " counter(page) " / " counter(pages);
     font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, sans-serif;
     font-size: 8pt;
-    color: #78716C;
-    border-top: 1px solid #E7E5E4;
+    color: #8C8A7E;
+    border-top: 1px solid #33352A;
     padding-top: 6px;
   }
 }
@@ -54,8 +55,8 @@ body {
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, Arial, sans-serif;
   font-size: 9.5pt;
   line-height: 1.45;
-  color: #1C1917;
-  background-color: #FFFFFF;
+  color: #D8D6CD;
+  background-color: #11120D;
 }
 
 .page {
@@ -81,7 +82,7 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 3px solid #63773B;
+  border: 3px solid #565449;
   display: inline-block;
   vertical-align: middle;
 }
@@ -89,7 +90,7 @@ body {
 .brand-text {
   font-size: 11pt;
   font-weight: 700;
-  color: #1C1917;
+  color: #F5F4EE;
   letter-spacing: -0.02em;
 }
 
@@ -97,22 +98,22 @@ body {
 .report-title {
   font-size: 26pt;
   font-weight: 800;
-  color: #1C1917;
+  color: #F5F4EE;
   letter-spacing: -0.03em;
   margin-bottom: 4px;
 }
 
 .report-subtitle {
   font-size: 10.5pt;
-  color: #57534E;
+  color: #A8A69A;
   margin-bottom: 18px;
 }
 
 .meta-grid {
   display: flex;
   justify-content: space-between;
-  border-top: 1px solid #E7E5E4;
-  border-bottom: 1px solid #E7E5E4;
+  border-top: 1px solid #33352A;
+  border-bottom: 1px solid #33352A;
   padding: 12px 0;
   margin-bottom: 18px;
 }
@@ -126,14 +127,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #78716C;
+  color: #8C8A7E;
   margin-bottom: 3px;
 }
 
 .meta-value {
   font-size: 10.5pt;
   font-weight: 600;
-  color: #1C1917;
+  color: #F5F4EE;
 }
 
 /* ── Section Titles ── */
@@ -142,8 +143,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #57534E;
-  border-bottom: 1.5px solid #849163;
+  color: #D8D6CD;
+  border-bottom: 1.5px solid #565449;
   padding-bottom: 4px;
   margin-top: 14px;
   margin-bottom: 10px;
@@ -151,34 +152,37 @@ body {
 
 /* ── Callout Boxes ── */
 .callout-exec {
-  background-color: #F8F6F0;
-  border-left: 3.5px solid #63773B;
+  background-color: #181A14;
+  border-left: 3.5px solid #565449;
+  border-top: 1px solid #282A22;
+  border-right: 1px solid #282A22;
+  border-bottom: 1px solid #282A22;
   padding: 10px 14px;
   border-radius: 0 4px 4px 0;
   font-size: 9.5pt;
-  color: #292524;
+  color: #F5F4EE;
   line-height: 1.5;
   margin-bottom: 14px;
 }
 
 .callout-blue {
-  background-color: #EEF4FB;
-  border: 1px solid #D1E3F8;
+  background-color: #13171F;
+  border: 1px solid #253347;
   border-radius: 4px;
   padding: 8px 12px;
   font-size: 8.5pt;
-  color: #1E3A8A;
+  color: #93C5FD;
   margin-top: 6px;
   margin-bottom: 14px;
 }
 
 .callout-amber {
-  background-color: #FBF4EA;
-  border: 1px solid #F5E0C3;
+  background-color: #1C1910;
+  border: 1px solid #4D3815;
   border-radius: 4px;
   padding: 8px 12px;
   font-size: 8.5pt;
-  color: #78350F;
+  color: #FDE047;
   margin-top: 6px;
   margin-bottom: 14px;
 }
@@ -196,9 +200,10 @@ body {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #78716C;
+  color: #A8A69A;
   padding: 6px 8px;
-  border-bottom: 1px solid #E7E5E4;
+  border-bottom: 1px solid #33352A;
+  background-color: #141510;
   text-align: left;
 }
 
@@ -208,14 +213,15 @@ body {
 
 .data-table td {
   padding: 7px 8px;
-  border-bottom: 1px solid #F3F1EA;
-  color: #1C1917;
+  border-bottom: 1px solid #24261E;
+  color: #D8D6CD;
   vertical-align: middle;
 }
 
 .data-table tr.highlight-row {
-  background-color: #F7FAF3;
+  background-color: #1F221A;
   font-weight: 600;
+  color: #F5F4EE;
 }
 
 /* ── Badges ── */
@@ -229,8 +235,9 @@ body {
 }
 
 .badge-rec {
-  background-color: #EBF1E5;
-  color: #3F5E24;
+  background-color: rgba(86, 84, 73, 0.4);
+  color: #E8E6DB;
+  border: 1px solid #737061;
   font-size: 7pt;
   font-weight: 700;
   padding: 1px 5px;
@@ -239,40 +246,44 @@ body {
 }
 
 .badge-gatekeeper {
-  background-color: #FDECE9;
-  color: #991B1B;
+  background-color: rgba(180, 130, 40, 0.22);
+  color: #FDE047;
+  border: 1px solid rgba(180, 130, 40, 0.4);
 }
 
 .badge-blocker {
-  background-color: #FCEBE6;
-  color: #B91C1C;
+  background-color: rgba(200, 70, 70, 0.22);
+  color: #FCA5A5;
+  border: 1px solid rgba(200, 70, 70, 0.4);
 }
 
 .badge-right-placed {
-  background-color: #EBF3EA;
-  color: #22543D;
+  background-color: rgba(62, 138, 86, 0.22);
+  color: #86EFAC;
+  border: 1px solid rgba(62, 138, 86, 0.4);
 }
 
 .badge-undifferentiated {
-  background-color: #EBF3F9;
-  color: #1E40AF;
+  background-color: rgba(86, 84, 73, 0.25);
+  color: #D2CFBF;
+  border: 1px solid rgba(86, 84, 73, 0.4);
 }
 
 .badge-risk-low {
-  background-color: #EBF3EA;
-  color: #22543D;
+  background-color: rgba(62, 138, 86, 0.22);
+  color: #86EFAC;
   font-size: 7.5pt;
 }
 
 .badge-risk-medium {
-  background-color: #EEF4FB;
-  color: #1E3A8A;
+  background-color: rgba(180, 130, 40, 0.22);
+  color: #FDE047;
   font-size: 7.5pt;
 }
 
 .badge-risk-high {
-  background-color: #FDECE9;
-  color: #991B1B;
+  background-color: rgba(200, 70, 70, 0.22);
+  color: #FCA5A5;
   font-size: 7.5pt;
 }
 
@@ -294,14 +305,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #78716C;
+  color: #8C8A7E;
   margin-bottom: 2px;
 }
 
 .position-value {
   font-size: 13pt;
   font-weight: 700;
-  color: #1C1917;
+  color: #F5F4EE;
 }
 
 .position-desc {
@@ -309,7 +320,7 @@ body {
   vertical-align: top;
   padding-left: 16px;
   font-size: 9.5pt;
-  color: #44403C;
+  color: #D8D6CD;
   line-height: 1.45;
 }
 
@@ -326,30 +337,28 @@ body {
   padding-right: 14px;
 }
 
-
 .split-col-title {
   font-size: 7.5pt;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #78716C;
+  color: #A8A69A;
   margin-bottom: 8px;
 }
 
 .bullet-item {
   font-size: 9pt;
-  color: #292524;
+  color: #D8D6CD;
   padding: 4px 0;
-  border-bottom: 1px solid #F5F3EC;
+  border-bottom: 1px solid #24261E;
 }
 
-/* ── Page 3 Strategy Elements ── */
 /* ── Page 3 Strategy Elements ── */
 .strategy-card {
   display: table;
   width: 100%;
   padding: 12px 0;
-  border-bottom: 1px solid #E7E5E4;
+  border-bottom: 1px solid #33352A;
 }
 
 .strategy-card:last-child {
@@ -362,7 +371,7 @@ body {
   width: 85px;
   font-size: 22pt;
   font-weight: 800;
-  color: #556B2F;
+  color: #E2DFD2;
   letter-spacing: -0.03em;
   padding-right: 14px;
 }
@@ -379,22 +388,21 @@ body {
 .strategy-name {
   font-size: 11pt;
   font-weight: 700;
-  color: #1C1917;
+  color: #F5F4EE;
   display: inline-block;
   margin-right: 8px;
 }
 
 .strategy-category {
   font-size: 9.5pt;
-  color: #57534E;
+  color: #A8A69A;
   display: inline-block;
   margin-right: 8px;
 }
 
-
 .strategy-summary {
   font-size: 9pt;
-  color: #44403C;
+  color: #D8D6CD;
   margin-bottom: 10px;
 }
 
@@ -403,7 +411,8 @@ body {
   border-collapse: collapse;
   font-size: 9pt;
   margin-bottom: 10px;
-  background-color: #FAF9F5;
+  background-color: #141510;
+  border: 1px solid #282A22;
   border-radius: 4px;
 }
 
@@ -411,21 +420,21 @@ body {
   font-size: 7pt;
   font-weight: 700;
   text-transform: uppercase;
-  color: #78716C;
+  color: #A8A69A;
   padding: 5px 8px;
-  border-bottom: 1px solid #E7E5E4;
+  border-bottom: 1px solid #33352A;
 }
 
 .strategy-table td {
   padding: 5px 8px;
-  border-bottom: 1px solid #F3F1EA;
-  color: #1C1917;
+  border-bottom: 1px solid #24261E;
+  color: #D8D6CD;
 }
 
 .steps-list {
   list-style: none;
   font-size: 8.5pt;
-  color: #292524;
+  color: #D8D6CD;
 }
 
 .steps-list li {
