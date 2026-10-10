@@ -195,6 +195,13 @@ Return ONLY the JSON. No markdown. No backticks."""
 
     try:
         result = await call_groq_with_retry(groq_client, prompt)
+        if isinstance(result, list):
+            if len(result) > 0 and isinstance(result[0], dict) and "strategies" in result[0]:
+                result = result[0]
+            else:
+                result = {"executive_summary": "", "strategies": result}
+        if not isinstance(result, dict) or "strategies" not in result:
+            return _deterministic_strategies()
         return result
     except Exception as e:
         print(f"[Module 4] Groq call failed ({e}), using deterministic recommendations fallback")

@@ -162,6 +162,13 @@ Example output:
 
     try:
         result = await call_groq_with_retry(groq_client, prompt)
+        if isinstance(result, list):
+            if len(result) > 0 and isinstance(result[0], dict) and "feature_audit" in result[0]:
+                result = result[0]
+            else:
+                result = {"feature_audit": result, "summary": {}}
+        if not isinstance(result, dict) or "feature_audit" not in result:
+            return _deterministic_audit()
         return result
     except Exception as e:
         print(f"[Module 2] Groq call failed ({e}), using deterministic feature audit fallback")

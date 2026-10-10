@@ -161,9 +161,47 @@ Return ONLY the JSON. No markdown. No backticks."""
 
     try:
         result = await call_groq_with_retry(groq_client, prompt)
-        if "benchmark" in result:
-            if not result["benchmark"].get("our_value_scores"):
-                result["benchmark"]["our_value_scores"] = our_value_scores
+
+        # Handle case where AI wraps the response in a list
+        if isinstance(result, list):
+            if len(result) > 0 and isinstance(result[0], dict) and ("benchmark" in result[0] or "competitors_parsed" in result[0]):
+                result = result[0]
+            else:
+                result = {
+                    "competitors_parsed": result,
+                    "benchmark": {}
+                }
+
+        if not isinstance(result, dict):
+            return _fallback_benchmark()
+
+        # Ensure benchmark is a dict
+        benchmark = result.get("benchmark")
+        if isinstance(benchmark, list):
+            benchmark = benchmark[0] if (len(benchmark) > 0 and isinstance(benchmark[0], dict)) else {}
+            result["benchmark"] = benchmark
+        elif not isinstance(benchmark, dict):
+            benchmark = {}
+            result["benchmark"] = benchmark
+
+        # Ensure competitors_parsed is a list
+        if not isinstance(result.get("competitors_parsed"), list):
+            result["competitors_parsed"] = []
+
+        # Ensure our_value_scores is set
+        if not benchmark.get("our_value_scores"):
+            benchmark["our_value_scores"] = our_value_scores
+
+        # Ensure required benchmark string/list fields exist
+        if not benchmark.get("positioning"):
+            benchmark["positioning"] = "well_positioned"
+        if not benchmark.get("price_vs_market"):
+            benchmark["price_vs_market"] = "Pricing sits close to market rate, slightly below comparable industry alternatives."
+        if not isinstance(benchmark.get("features_we_lack"), list):
+            benchmark["features_we_lack"] = []
+        if not isinstance(benchmark.get("features_we_uniquely_have"), list):
+            benchmark["features_we_uniquely_have"] = []
+
         return result
     except Exception as e:
         print(f"[Module 3] Groq call failed ({e}), using benchmark fallback")

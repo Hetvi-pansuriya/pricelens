@@ -82,7 +82,6 @@ async def call_groq_with_retry(client, prompt: str, max_retries: int = 3) -> dic
 
         except json.JSONDecodeError as e:
             last_error = f"JSON parse error: {e}"
-
             if attempt < max_retries - 1:
                 current_prompt = (
                     current_prompt
@@ -90,13 +89,13 @@ async def call_groq_with_retry(client, prompt: str, max_retries: int = 3) -> dic
                     "Return ONLY a valid JSON object. No markdown, no backticks, no text outside the JSON braces."
                 )
             continue
-
+        except Exception as e:
+            error_str = str(e)
             if "rate_limit" in error_str.lower() or "429" in error_str:
                 wait_seconds = 5
                 print(f"Groq rate limit hit on attempt {attempt + 1}, waiting {wait_seconds}s...")
                 await asyncio.sleep(wait_seconds)
                 continue
-
             last_error = error_str
             break
 
