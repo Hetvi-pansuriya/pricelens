@@ -10,10 +10,6 @@ PriceLens is an automated pricing sensitivity analyzer and competitor benchmarki
 
 PriceLens evaluates software packaging and pricing models to help SaaS companies find revenue expansion opportunities without increasing churn. It calculates price elasticity projections across tiers, flags misplaced features, benchmarks competitor offerings, and generates actionable restructuring proposals. The platform is designed for founders, product managers, and pricing operators seeking data-driven pricing intelligence.
 
-Live links:
-- Web application: https://pricelens-pi.vercel.app/
-- API server: https://pricing-analyzer-8u3n.onrender.com/
-- Interactive documentation: https://pricing-analyzer-8u3n.onrender.com/docs
 
 ## 2. Features
 
