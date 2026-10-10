@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.PROD
+    ? 'https://pricing-analyzer-8u3n.onrender.com'
+    : 'http://localhost:8000');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -8,6 +12,7 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+export const client = apiClient;
 
 apiClient.interceptors.request.use(
   (config) => {

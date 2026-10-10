@@ -84,30 +84,31 @@ app.add_middleware(SlowAPIMiddleware)
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 
 
-frontend_url = os.getenv("FRONTEND_URL", "https://pricelens.vercel.app")
+frontend_url = os.getenv("FRONTEND_URL", "https://pricelens-pi.vercel.app").rstrip("/")
 default_cors_origins = [
     "http://localhost:5173",       # React dev server (Vite default port)
     "http://localhost:5174",       # Vite alternate port
     "http://localhost:5175",       # Vite alternate port
-    "http://localhost:3000",       # React dev server (Create React App default port)
+    "http://localhost:8000",       # Backend port
+    "http://localhost:3000",       # Alternate React port
     frontend_url,                  # deployed Vercel production frontend URL
-    "https://pricelens-pi.vercel.app",          # Vercel URL
-    "https://pricelens-ii1dkrr0g-hetvipansuriya75-1764s-projects.vercel.app", # Alternative Vercel URL
+    "https://pricelens-pi.vercel.app", # Vercel URL
+    "https://pricelens-ii1dkrr0g-hetvipansuriya75-1764s-projects.vercel.app", # Alternative Vercel preview URL
 ]
 
 cors_env = os.getenv("CORS_ORIGINS")
 if cors_env:
-    cors_origins = [origin.strip() for origin in cors_env.split(",") if origin.strip()]
+    cors_origins = [origin.strip().rstrip("/") for origin in cors_env.split(",") if origin.strip()]
 else:
-    cors_origins = list(dict.fromkeys(default_cors_origins))
+    cors_origins = list(dict.fromkeys([origin.rstrip("/") for origin in default_cors_origins]))
 
 app.add_middleware(
-    CORSMiddleware,                    # the middleware class to use
-    allow_origins=cors_origins,        # list of domains allowed to call this API
+    CORSMiddleware,
+    allow_origins=cors_origins,
     allow_origin_regex=r"https://.*\.vercel\.app",
-    allow_credentials=True,           # allow cookies and Authorization headers to be sent
-    allow_methods=["*"],              # allow all HTTP methods (GET, POST, DELETE, etc.)
-    allow_headers=["*"],              # allow all headers (including Authorization for JWT)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
