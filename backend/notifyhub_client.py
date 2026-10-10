@@ -391,7 +391,7 @@ async def send_report_email(
 
             # Other 4xx or 5xx: fall back once
             print(
-                f"[NotifyHub] Error status {response.status_code} for session {session_id}. Falling back to default sender."
+                f"[NotifyHub] Error status {response.status_code} ({response.text}) for session {session_id}. Falling back to default sender."
             )
             return await _fallback()
 
