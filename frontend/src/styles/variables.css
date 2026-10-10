@@ -1,64 +1,70 @@
 :root {
-  /* Color Palette - Smoky Black (#11120D) & Olive Drab (#565449) Dark Mode */
-  --bg-page: #11120D;
-  /* Deep smoky black canvas */
-  --bg-sidebar: #0C0D09;
-  /* Deepest grounding smoky black sidebar */
-  --bg-card: #2c2e29;
-  /* Elevated smoky dark surface */
-  --bg-hover: #23251D;
-  /* Interactive hover state */
-  --bg-subtle: #151611;
-  /* Subtle dark panel */
-  --bg-inset: #0E0F0A;
-  /* Inset input & well surface */
+  /* Backgrounds & Surfaces */
+  --bg-root: #0b0b0c;
+  --bg-page: #0b0b0c;
+  --bg-sidebar: #0e0e10;
+  --bg-surface-card: #141415;
+  --bg-card: #141415;
+  --bg-surface-elevated: #18181a;
+  --bg-subtle: #18181a;
+  --bg-surface-hover: #19191b;
+  --bg-hover: #19191b;
+  --bg-input: #0f0f11;
+  --bg-inset: #0f0f11;
+  --bg-active-pill: #1c1c1f;
 
-  /* Borders */
-  --border-light: #24261E;
-  /* Soft structural boundary */
-  --border-card: #33352A;
-  /* Clean card contour */
-  --border-strong: #565449;
-  /* Olive Drab border */
-  --border-focus: #7A7768;
-  /* Luminous olive focus */
+  /* Borders & Dividers */
+  --border-subtle: #232325;
+  --border-light: #232325;
+  --border-card: #232325;
+  --border-input: #232325;
+  --border-strong: #3f3f46;
+  --border-focus: #3f3f46;
 
-  /* Text & Foreground */
-  --text-main: #F5F4EE;
-  /* Crisp warm ivory heading text */
-  --text-body: #D8D6CD;
-  /* Clean warm light gray body text */
-  --text-secondary: #A8A69A;
-  /* Olive-tinged stone gray */
-  --text-muted: #6E6C60;
-  /* Subtle muted caption text */
-  --text-inverse: #11120D;
-  /* Smoky black inverse text */
+  /* Typography / Text */
+  --text-main: #ececec;
+  --text-body: #ececec;
+  --text-secondary: #9a9a9f;
+  --text-muted: #71717a;
+  --text-inverse: #0b0b0c;
 
-  /* Primary Brand — Olive Drab (#565449) */
-  --primary: #565449;
-  --primary-hover: #6B685B;
-  --primary-active: #47453B;
-  --primary-light: rgba(86, 84, 73, 0.24);
-  --primary-border: rgba(86, 84, 73, 0.55);
-  --primary-text: #F5F4EE;
+  /* Buttons */
+  --btn-primary-bg: #ececec;
+  --btn-primary-text: #0b0b0c;
+  --btn-primary-hover: #ffffff;
+  --btn-secondary-bg: #18181a;
+  --btn-secondary-border: #232325;
+  --btn-secondary-text: #ececec;
 
-  /* Badges & Status */
-  --success-bg: rgba(62, 138, 86, 0.18);
-  --success-text: #86EFAC;
-  --success-border: rgba(62, 138, 86, 0.35);
+  /* Primary Brand aliases */
+  --primary: #ececec;
+  --primary-hover: #ffffff;
+  --primary-active: #d4d4d8;
+  --primary-light: rgba(236, 236, 236, 0.1);
+  --primary-border: #3f3f46;
+  --primary-text: #0b0b0c;
 
-  --warning-bg: rgba(180, 130, 40, 0.18);
-  --warning-text: #FDE047;
-  --warning-border: rgba(180, 130, 40, 0.35);
+  /* Status Accents */
+  --accent-blue: #3b82f6;
+  --accent-green: #10b981;
+  --accent-yellow: #f59e0b;
+  --accent-red: #ef4444;
 
-  --danger-bg: rgba(200, 70, 70, 0.18);
-  --danger-text: #FCA5A5;
-  --danger-border: rgba(200, 70, 70, 0.35);
+  --success-bg: rgba(16, 185, 129, 0.12);
+  --success-text: #10b981;
+  --success-border: rgba(16, 185, 129, 0.3);
 
-  --info-bg: rgba(86, 84, 73, 0.25);
-  --info-text: #D2CFBF;
-  --info-border: rgba(86, 84, 73, 0.45);
+  --warning-bg: rgba(245, 158, 11, 0.12);
+  --warning-text: #f59e0b;
+  --warning-border: rgba(245, 158, 11, 0.3);
+
+  --danger-bg: rgba(239, 68, 68, 0.12);
+  --danger-text: #ef4444;
+  --danger-border: rgba(239, 68, 68, 0.3);
+
+  --info-bg: rgba(59, 130, 246, 0.12);
+  --info-text: #3b82f6;
+  --info-border: rgba(59, 130, 246, 0.3);
 
   /* Typography */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -72,9 +78,9 @@
   --radius-full: 9999px;
 
   /* Shadows for dark elevation */
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.65), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.6), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4);
 
   /* Transitions */
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);

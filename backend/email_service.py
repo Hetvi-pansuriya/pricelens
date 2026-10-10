@@ -115,18 +115,18 @@ def _send_complete(
 
     html_content = f"""<!DOCTYPE html>
 <html>
-<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background-color:#11120D;color:#D8D6CD;">
+<body style="margin:0;padding:0;font-family:'Segoe UI',Arial,sans-serif;background-color:#0b0b0c;color:#ececec;">
 <table width="100%" cellpadding="0" cellspacing="0">
   <tr><td align="center" style="padding:40px 16px;">
-    <table width="560" cellpadding="0" cellspacing="0" style="background:#2c2e29;border-radius:12px;border:1px solid #33352A;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+    <table width="560" cellpadding="0" cellspacing="0" style="background:#141415;border-radius:12px;border:1px solid #232325;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
       
       <!-- Brand Header -->
       <tr>
-        <td style="background-color:#141510;border-bottom:1px solid #2A2C23;padding:24px 32px;">
-          <div style="font-size:18px;font-weight:700;color:#F5F4EE;letter-spacing:-0.02em;">
-            <span style="color:#565449;font-size:22px;">●</span> PriceLens
+        <td style="background-color:#0e0e10;border-bottom:1px solid #232325;padding:24px 32px;">
+          <div style="font-size:18px;font-weight:700;color:#ececec;letter-spacing:-0.02em;">
+            <span style="color:#ececec;font-size:20px;">●</span> PriceLens
           </div>
-          <div style="font-size:12px;color:#A8A69A;margin-top:2px;">
+          <div style="font-size:12px;color:#9a9a9f;margin-top:2px;">
             SaaS Pricing Sensitivity & Market Benchmark
           </div>
         </td>
@@ -135,47 +135,47 @@ def _send_complete(
       <!-- Body Content -->
       <tr>
         <td style="padding:32px;">
-          <h2 style="margin:0 0 10px 0;font-size:20px;font-weight:700;color:#F5F4EE;">
+          <h2 style="margin:0 0 10px 0;font-size:20px;font-weight:700;color:#ececec;">
             Pricing Analysis Complete
           </h2>
-          <p style="margin:0 0 20px 0;font-size:14px;color:#D8D6CD;line-height:1.5;">
-            Your pricing sensitivity model and market competitor benchmark for <strong>{safe_name}</strong> have finished processing.
+          <p style="margin:0 0 20px 0;font-size:14px;color:#9a9a9f;line-height:1.5;">
+            Your pricing sensitivity model and market competitor benchmark for <strong style="color:#ececec;">{safe_name}</strong> have finished processing.
           </p>
 
           <!-- Key Metrics Grid -->
           <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
             <tr>
-              <td width="48%" style="background:#12130E;border:1px solid #2D3025;border-radius:8px;padding:16px;">
-                <div style="font-size:11px;font-weight:700;color:#A8A69A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Current MRR</div>
-                <div style="font-size:22px;font-weight:700;color:#F5F4EE;">{mrr_display}</div>
+              <td width="48%" style="background:#18181a;border:1px solid #232325;border-radius:8px;padding:16px;">
+                <div style="font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Current MRR</div>
+                <div style="font-size:22px;font-weight:700;color:#ececec;">{mrr_display}</div>
               </td>
               <td width="4%"></td>
-              <td width="48%" style="background:#12130E;border:1px solid #2D3025;border-radius:8px;padding:16px;">
-                <div style="font-size:11px;font-weight:700;color:#A8A69A;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Recommended Scenario</div>
-                <div style="font-size:22px;font-weight:700;color:#E2DFD2;">{html.escape(str(recommended_increase))}</div>
+              <td width="48%" style="background:#18181a;border:1px solid #232325;border-radius:8px;padding:16px;">
+                <div style="font-size:11px;font-weight:700;color:#71717a;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Recommended Scenario</div>
+                <div style="font-size:22px;font-weight:700;color:#ececec;">{html.escape(str(recommended_increase))}</div>
               </td>
             </tr>
           </table>
 
-          <p style="margin:0 0 24px 0;font-size:13.5px;color:#D8D6CD;line-height:1.5;">
+          <p style="margin:0 0 24px 0;font-size:13.5px;color:#9a9a9f;line-height:1.5;">
             Your executive 3-page PDF report has been generated and attached to this email. You can also view the live interactive report online:
           </p>
 
           <div style="text-align:center;margin:28px 0;">
-            <a href="{report_url}" style="background-color:#565449;border:1px solid #737061;color:#FFFFFF;text-decoration:none;padding:12px 28px;font-size:14px;font-weight:600;border-radius:6px;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.5);">
+            <a href="{report_url}" style="background-color:#ececec;border:1px solid #ececec;color:#0b0b0c;text-decoration:none;padding:12px 28px;font-size:14px;font-weight:600;border-radius:6px;display:inline-block;box-shadow:0 3px 10px rgba(0,0,0,0.5);">
               View Interactive Report &rarr;
             </a>
           </div>
 
-          <div style="border-top:1px solid #24261E;padding-top:18px;font-size:12px;color:#8C8A7E;line-height:1.4;">
-            Attachment: <strong style="color:#D8D6CD;">{Path(pdf_path).name if pdf_path else 'pricing-report.pdf'}</strong>
+          <div style="border-top:1px solid #232325;padding-top:18px;font-size:12px;color:#71717a;line-height:1.4;">
+            Attachment: <strong style="color:#ececec;">{Path(pdf_path).name if pdf_path else 'pricing-report.pdf'}</strong>
           </div>
         </td>
       </tr>
 
       <!-- Footer -->
       <tr>
-        <td style="background-color:#12130E;border-top:1px solid #2A2C23;padding:16px 32px;font-size:11.5px;color:#78766C;text-align:center;">
+        <td style="background-color:#0e0e10;border-top:1px solid #232325;padding:16px 32px;font-size:11.5px;color:#71717a;text-align:center;">
           PriceLens Automated Intelligence · Confidential Pricing Analysis
         </td>
       </tr>
@@ -312,15 +312,15 @@ def _send_reset(to_email: str, reset_link: str) -> bool:
 
     subject = "PriceLens — Reset your password"
     html_content = f"""
-    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#2c2e29;border:1px solid #33352A;border-radius:10px;color:#D8D6CD;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
-      <h2 style="color:#F5F4EE;margin-top:0;">Reset your PriceLens password</h2>
-      <p style="color:#D8D6CD;font-size:14px;line-height:1.5;">Click below to set a new password. This secure link expires in 1 hour.</p>
+    <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#141415;border:1px solid #232325;border-radius:10px;color:#ececec;box-shadow:0 8px 24px rgba(0,0,0,0.6);">
+      <h2 style="color:#ececec;margin-top:0;">Reset your PriceLens password</h2>
+      <p style="color:#9a9a9f;font-size:14px;line-height:1.5;">Click below to set a new password. This secure link expires in 1 hour.</p>
       <div style="text-align:center;margin:24px 0;">
-        <a href="{safe_link}" style="display:inline-block;padding:12px 26px;background:#565449;border:1px solid #737061;color:#FFFFFF;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 3px 10px rgba(0,0,0,0.5);">
+        <a href="{safe_link}" style="display:inline-block;padding:12px 26px;background:#ececec;border:1px solid #ececec;color:#0b0b0c;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;box-shadow:0 3px 10px rgba(0,0,0,0.5);">
           Reset Password &rarr;
         </a>
       </div>
-      <p style="color:#78766C;font-size:12px;">If you did not request a password reset, you can safely ignore this email.</p>
+      <p style="color:#71717a;font-size:12px;">If you did not request a password reset, you can safely ignore this email.</p>
     </div>"""
 
     delivery_status = "simulated"

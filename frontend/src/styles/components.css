@@ -20,29 +20,29 @@
 }
 
 .btn-primary {
-  background-color: var(--primary);
-  color: var(--text-main);
-  border: 1px solid #737061;
-  box-shadow: 0 2px 6px rgba(17, 18, 13, 0.6);
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: 1px solid var(--btn-primary-bg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
 }
 .btn-primary:hover {
-  background-color: var(--primary-hover);
-  border-color: #8C8977;
-  box-shadow: 0 4px 12px rgba(17, 18, 13, 0.8);
+  background-color: var(--btn-primary-hover);
+  border-color: var(--btn-primary-hover);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 .btn-primary:active {
-  background-color: var(--primary-active);
+  background-color: #d4d4d8;
 }
 
 .btn-secondary {
-  background-color: var(--bg-card);
-  color: var(--text-main);
-  border: 1px solid var(--border-card);
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
   box-shadow: var(--shadow-sm);
 }
 .btn-secondary:hover {
-  background-color: var(--bg-hover);
-  border-color: var(--border-strong);
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-focus);
 }
 
 .btn-ghost {
@@ -206,8 +206,8 @@
 
 .form-input, .form-select, .form-textarea {
   width: 100%;
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-strong);
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-input);
   border-radius: var(--radius-md);
   padding: 10px 14px;
   font-size: 14px;
@@ -217,8 +217,8 @@
 }
 
 .form-input:focus, .form-select:focus, .form-textarea:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(86, 84, 73, 0.35);
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(63, 63, 70, 0.35);
 }
 
 .form-input::placeholder, .form-textarea::placeholder {

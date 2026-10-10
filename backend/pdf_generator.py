@@ -55,8 +55,8 @@ body {
   font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', Roboto, Arial, sans-serif;
   font-size: 9.5pt;
   line-height: 1.45;
-  color: #D8D6CD;
-  background-color: #11120D;
+  color: #ececec;
+  background-color: #0b0b0c;
 }
 
 .page {
@@ -82,7 +82,7 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 3px solid #565449;
+  border: 3px solid #ececec;
   display: inline-block;
   vertical-align: middle;
 }
@@ -90,7 +90,7 @@ body {
 .brand-text {
   font-size: 11pt;
   font-weight: 700;
-  color: #F5F4EE;
+  color: #ececec;
   letter-spacing: -0.02em;
 }
 
@@ -98,22 +98,22 @@ body {
 .report-title {
   font-size: 26pt;
   font-weight: 800;
-  color: #F5F4EE;
+  color: #ececec;
   letter-spacing: -0.03em;
   margin-bottom: 4px;
 }
 
 .report-subtitle {
   font-size: 10.5pt;
-  color: #A8A69A;
+  color: #9a9a9f;
   margin-bottom: 18px;
 }
 
 .meta-grid {
   display: flex;
   justify-content: space-between;
-  border-top: 1px solid #33352A;
-  border-bottom: 1px solid #33352A;
+  border-top: 1px solid #232325;
+  border-bottom: 1px solid #232325;
   padding: 12px 0;
   margin-bottom: 18px;
 }
@@ -127,14 +127,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8C8A7E;
+  color: #71717a;
   margin-bottom: 3px;
 }
 
 .meta-value {
   font-size: 10.5pt;
   font-weight: 600;
-  color: #F5F4EE;
+  color: #ececec;
 }
 
 /* ── Section Titles ── */
@@ -143,8 +143,8 @@ body {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #D8D6CD;
-  border-bottom: 1.5px solid #565449;
+  color: #ececec;
+  border-bottom: 1.5px solid #232325;
   padding-bottom: 4px;
   margin-top: 14px;
   margin-bottom: 10px;
@@ -152,37 +152,39 @@ body {
 
 /* ── Callout Boxes ── */
 .callout-exec {
-  background-color: #2c2e29;
-  border-left: 3.5px solid #565449;
-  border-top: 1px solid #282A22;
-  border-right: 1px solid #282A22;
-  border-bottom: 1px solid #282A22;
+  background-color: #141415;
+  border-left: 3.5px solid #ececec;
+  border-top: 1px solid #232325;
+  border-right: 1px solid #232325;
+  border-bottom: 1px solid #232325;
   padding: 10px 14px;
   border-radius: 0 4px 4px 0;
   font-size: 9.5pt;
-  color: #F5F4EE;
+  color: #ececec;
   line-height: 1.5;
   margin-bottom: 14px;
 }
 
 .callout-blue {
-  background-color: #13171F;
-  border: 1px solid #253347;
+  background-color: #141415;
+  border: 1px solid #232325;
+  border-left: 3.5px solid #3b82f6;
   border-radius: 4px;
   padding: 8px 12px;
   font-size: 8.5pt;
-  color: #93C5FD;
+  color: #9a9a9f;
   margin-top: 6px;
   margin-bottom: 14px;
 }
 
 .callout-amber {
-  background-color: #1C1910;
-  border: 1px solid #4D3815;
+  background-color: #141415;
+  border: 1px solid #232325;
+  border-left: 3.5px solid #f59e0b;
   border-radius: 4px;
   padding: 8px 12px;
   font-size: 8.5pt;
-  color: #FDE047;
+  color: #9a9a9f;
   margin-top: 6px;
   margin-bottom: 14px;
 }
@@ -200,10 +202,10 @@ body {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #A8A69A;
+  color: #9a9a9f;
   padding: 6px 8px;
-  border-bottom: 1px solid #33352A;
-  background-color: #141510;
+  border-bottom: 1px solid #232325;
+  background-color: #18181a;
   text-align: left;
 }
 
@@ -213,15 +215,15 @@ body {
 
 .data-table td {
   padding: 7px 8px;
-  border-bottom: 1px solid #24261E;
-  color: #D8D6CD;
+  border-bottom: 1px solid #232325;
+  color: #ececec;
   vertical-align: middle;
 }
 
 .data-table tr.highlight-row {
-  background-color: #1F221A;
+  background-color: #1c1c1f;
   font-weight: 600;
-  color: #F5F4EE;
+  color: #ececec;
 }
 
 /* ── Badges ── */
@@ -235,9 +237,9 @@ body {
 }
 
 .badge-rec {
-  background-color: rgba(86, 84, 73, 0.4);
-  color: #E8E6DB;
-  border: 1px solid #737061;
+  background-color: #1c1c1f;
+  color: #ececec;
+  border: 1px solid #3f3f46;
   font-size: 7pt;
   font-weight: 700;
   padding: 1px 5px;
@@ -246,44 +248,44 @@ body {
 }
 
 .badge-gatekeeper {
-  background-color: rgba(180, 130, 40, 0.22);
-  color: #FDE047;
-  border: 1px solid rgba(180, 130, 40, 0.4);
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
 }
 
 .badge-blocker {
-  background-color: rgba(200, 70, 70, 0.22);
-  color: #FCA5A5;
-  border: 1px solid rgba(200, 70, 70, 0.4);
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
 }
 
 .badge-right-placed {
-  background-color: rgba(62, 138, 86, 0.22);
-  color: #86EFAC;
-  border: 1px solid rgba(62, 138, 86, 0.4);
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
 }
 
 .badge-undifferentiated {
-  background-color: rgba(86, 84, 73, 0.25);
-  color: #D2CFBF;
-  border: 1px solid rgba(86, 84, 73, 0.4);
+  background-color: #18181a;
+  color: #9a9a9f;
+  border: 1px solid #232325;
 }
 
 .badge-risk-low {
-  background-color: rgba(62, 138, 86, 0.22);
-  color: #86EFAC;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
   font-size: 7.5pt;
 }
 
 .badge-risk-medium {
-  background-color: rgba(180, 130, 40, 0.22);
-  color: #FDE047;
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
   font-size: 7.5pt;
 }
 
 .badge-risk-high {
-  background-color: rgba(200, 70, 70, 0.22);
-  color: #FCA5A5;
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
   font-size: 7.5pt;
 }
 
@@ -305,14 +307,14 @@ body {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #8C8A7E;
+  color: #71717a;
   margin-bottom: 2px;
 }
 
 .position-value {
   font-size: 13pt;
   font-weight: 700;
-  color: #F5F4EE;
+  color: #ececec;
 }
 
 .position-desc {
@@ -320,7 +322,7 @@ body {
   vertical-align: top;
   padding-left: 16px;
   font-size: 9.5pt;
-  color: #D8D6CD;
+  color: #9a9a9f;
   line-height: 1.45;
 }
 
@@ -342,15 +344,15 @@ body {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #A8A69A;
+  color: #9a9a9f;
   margin-bottom: 8px;
 }
 
 .bullet-item {
   font-size: 9pt;
-  color: #D8D6CD;
+  color: #ececec;
   padding: 4px 0;
-  border-bottom: 1px solid #24261E;
+  border-bottom: 1px solid #232325;
 }
 
 /* ── Page 3 Strategy Elements ── */
@@ -358,7 +360,7 @@ body {
   display: table;
   width: 100%;
   padding: 12px 0;
-  border-bottom: 1px solid #33352A;
+  border-bottom: 1px solid #232325;
 }
 
 .strategy-card:last-child {
@@ -371,7 +373,7 @@ body {
   width: 85px;
   font-size: 22pt;
   font-weight: 800;
-  color: #E2DFD2;
+  color: #ececec;
   letter-spacing: -0.03em;
   padding-right: 14px;
 }
@@ -388,21 +390,21 @@ body {
 .strategy-name {
   font-size: 11pt;
   font-weight: 700;
-  color: #F5F4EE;
+  color: #ececec;
   display: inline-block;
   margin-right: 8px;
 }
 
 .strategy-category {
   font-size: 9.5pt;
-  color: #A8A69A;
+  color: #9a9a9f;
   display: inline-block;
   margin-right: 8px;
 }
 
 .strategy-summary {
   font-size: 9pt;
-  color: #D8D6CD;
+  color: #9a9a9f;
   margin-bottom: 10px;
 }
 
@@ -411,8 +413,8 @@ body {
   border-collapse: collapse;
   font-size: 9pt;
   margin-bottom: 10px;
-  background-color: #141510;
-  border: 1px solid #282A22;
+  background-color: #141415;
+  border: 1px solid #232325;
   border-radius: 4px;
 }
 
@@ -420,21 +422,21 @@ body {
   font-size: 7pt;
   font-weight: 700;
   text-transform: uppercase;
-  color: #A8A69A;
+  color: #9a9a9f;
   padding: 5px 8px;
-  border-bottom: 1px solid #33352A;
+  border-bottom: 1px solid #232325;
 }
 
 .strategy-table td {
   padding: 5px 8px;
-  border-bottom: 1px solid #24261E;
-  color: #D8D6CD;
+  border-bottom: 1px solid #232325;
+  color: #ececec;
 }
 
 .steps-list {
   list-style: none;
   font-size: 8.5pt;
-  color: #D8D6CD;
+  color: #9a9a9f;
 }
 
 .steps-list li {
@@ -504,7 +506,7 @@ body {
         </td>
         <td class="num">{{ currency_symbol }}{{ "{:,.2f}".format(sc.projected_mrr) }}</td>
         <td class="num">{{ "{:.1f}%".format(sc.user_loss) }}</td>
-        <td class="num" style="color: {% if sc.net_change >= 0 %}#2E7D32{% else %}#C62828{% endif %};">
+        <td class="num" style="color: {% if sc.net_change >= 0 %}#10b981{% else %}#ef4444{% endif %};">
           {% if sc.net_change >= 0 %}+{% endif %}{{ "{:.1f}%".format(sc.net_change) }}
         </td>
       </tr>
@@ -664,7 +666,7 @@ body {
       {% endif %}
 
       {% if strat.tiers_summary %}
-      <div style="font-size: 8.5pt; color: #44403C; margin-bottom: 6px;">
+      <div style="font-size: 8.5pt; color: #9a9a9f; margin-bottom: 6px;">
         <strong>Tiers:</strong> {{ strat.tiers_summary }}
       </div>
       {% endif %}
